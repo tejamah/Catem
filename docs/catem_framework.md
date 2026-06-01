@@ -14,5 +14,39 @@ CATEM provides a layered evaluation model for telepresence experience.
 
 ## Prototype Scoring
 
-The prototype combines layer scores into a single CATEM score.
-Workload is currently treated as a subtraction factor in the prototype model.
+The prototype now includes two scoring stages:
+
+1. Literature-weighted CATEM score
+
+```text
+CATEM =
+0.25 Embodiment
++ 0.20 Presence
++ 0.20 Behavior
++ 0.10 Physiology
++ 0.15 System
++ 0.10 Data Quality
+- 0.10 Workload Risk
+```
+
+2. Data-driven validation
+
+The dashboard evaluates whether CATEM explains telepresence quality better than single-layer metrics using:
+
+- selected cross-layer correlations
+- multiple regression
+- random forest feature importance
+- actionable score-drop explanations
+
+## Research Correlations
+
+The current validation view highlights:
+
+- Ownership <-> Presence
+- Agency <-> Performance
+- Latency <-> Agency
+- Workload <-> Error Rate
+
+## Explainability
+
+CATEM is designed to be actionable. For low-scoring sessions, the dashboard identifies likely drivers such as high latency, high workload, tracking instability, packet loss, low agency, low presence, or reduced HRV.

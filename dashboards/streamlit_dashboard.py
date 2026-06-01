@@ -12,6 +12,7 @@ sys.path.append(str(ROOT_DIR))
 
 from src.catem_scoring import compute_catem_scores
 from src.data_loader import load_data
+from src.validation import explain_score_drop, selected_research_correlations, top_predictors
 
 
 LAYER_META = [
@@ -413,6 +414,83 @@ def comparison_chart() -> go.Figure:
     return fig
 
 
+def correlation_chart(df: pd.DataFrame) -> go.Figure:
+    cols = ["ownership_score", "presence_score", "agency_score", "movement_smoothness", "latency_ms", "nasa_tlx_score", "error_rate"]
+    labels = ["Ownership", "Presence", "Agency", "Performance", "Latency", "Workload", "Error Rate"]
+    corr = df[cols].corr()
+    fig = go.Figure(
+        go.Heatmap(
+            z=corr.values,
+            x=labels,
+            y=labels,
+            zmin=-1,
+            zmax=1,
+            colorscale="RdBu",
+            reversescale=True,
+            text=np.round(corr.values, 2),
+            texttemplate="%{text}",
+            textfont=dict(size=9),
+            colorbar=dict(thickness=8),
+        )
+    )
+    fig.update_layout(
+        height=245,
+        margin=dict(l=72, r=10, t=8, b=50),
+        paper_bgcolor="white",
+        plot_bgcolor="white",
+        font=dict(size=9, color="#111827"),
+    )
+    return fig
+
+
+def feature_importance_chart(df: pd.DataFrame) -> go.Figure:
+    features = [
+        "agency_score",
+        "presence_score",
+        "latency_ms",
+        "nasa_tlx_score",
+        "hrv",
+        "movement_smoothness",
+        "tracking_loss",
+        "error_rate",
+    ]
+    ranking = top_predictors(df, features)
+    fig = go.Figure(
+        go.Bar(
+            x=ranking["importance"],
+            y=ranking["feature"].str.replace("_", " ").str.title(),
+            orientation="h",
+            marker_color="#6f3cc3",
+            text=ranking["importance"].round(2),
+            textposition="outside",
+        )
+    )
+    fig.update_layout(
+        height=210,
+        margin=dict(l=118, r=30, t=8, b=32),
+        xaxis=dict(title="Importance", range=[0, max(0.2, float(ranking["importance"].max()) * 1.25)], gridcolor="#eef2f7"),
+        yaxis=dict(autorange="reversed"),
+        paper_bgcolor="white",
+        plot_bgcolor="white",
+        font=dict(size=10, color="#111827"),
+        showlegend=False,
+    )
+    return fig
+
+
+def explainability_card(df: pd.DataFrame) -> str:
+    lowest = df.sort_values("catem_score").iloc[0]
+    reasons = explain_score_drop(lowest, df)
+    reason_items = "".join(f"<li>{reason}</li>" for reason in reasons)
+    return (
+        '<div class="info-card insight">'
+        "<h4>Explainability</h4>"
+        f"<b>Why did {lowest['participant_id']} score lower?</b>"
+        f"<ul>{reason_items}</ul>"
+        "</div>"
+    )
+
+
 def nav_panel() -> str:
     items = [
         ("Overview", True),
@@ -422,7 +500,8 @@ def nav_panel() -> str:
         ("Physiology & Workload", False),
         ("System Telemetry", False),
         ("Correlation Analysis", False),
-        ("Validation Results", False),
+        ("Feature Importance", False),
+        ("Explainability", False),
         ("About CATEM", False),
     ]
     rows = "".join(f"<div class='nav-item {'active' if active else ''}'><span></span>{name}</div>" for name, active in items)
@@ -786,8 +865,12 @@ def main() -> None:
         st.markdown(
             """
             <div class="formula">
-                <div class="formula-title">CATEM SCORE (Overall Telepresence Quality)</div>
-                <div class="formula-body">+ Embodiment + Presence + Behavior + Physiology<br>+ System + Data Quality - <b style="color:#001b61;">Workload</b></div>
+                <div class="formula-title">LITERATURE-WEIGHTED CATEM SCORE</div>
+                <div class="formula-body">
+                    0.25 Embodiment + 0.20 Presence + 0.20 Behavior<br>
+                    + 0.10 Physiology + 0.15 System + 0.10 Data Quality<br>
+                    <b style="color:#001b61;">- 0.10 Workload Risk</b>
+                </div>
             </div>
             </div></div>
             """,
@@ -801,11 +884,11 @@ def main() -> None:
             st.markdown(nav_panel(), unsafe_allow_html=True)
         with main_col:
             metrics = [
-                ("CATEM Score<br>(Overall)", float(scaled(df["catem_score"]).mean() / max(scaled(df["catem_score"]).max(), 1) * 78.6), "/100", "#1d6ee8"),
+                ("CATEM Score<br>(Weighted)", score_value(df, "catem_score"), "/100", "#1d6ee8"),
                 ("Embodiment Score", score_value(df, "embodiment_score"), "/100", "#1d6ee8"),
                 ("Presence Score", score_value(df, "presence_score"), "/100", "#1d6ee8"),
                 ("Behavior Score", score_value(df, "behavior_score"), "/100", "#1d6ee8"),
-                ("Workload Score<br>(NASA-TLX)", score_value(df, "workload_score"), "/100", "#ff6b1a"),
+                ("Workload Risk<br>(NASA-TLX)", score_value(df, "workload_risk_score"), "/100", "#ff6b1a"),
                 ("System Score", score_value(df, "system_stability_score"), "/100", "#2b8c9f"),
             ]
             st.markdown("<div class='metric-grid'>" + "".join(metric_card(*item) for item in metrics) + "</div>", unsafe_allow_html=True)
@@ -833,6 +916,7 @@ def main() -> None:
                 <hr>
                 <h4>Validation Methods</h4>
                 <ul>
+                    <li>Literature-Based Weighting</li>
                     <li>Correlation Analysis</li>
                     <li>Multiple Linear Regression</li>
                     <li>Random Forest Regression</li>
@@ -848,20 +932,29 @@ def main() -> None:
         st.markdown(
             """
             </div>
-            <div class="info-card insight">
-                <h4>Key Insight</h4>
-                CATEM explains 78% of the variance in overall telepresence quality, outperforming any single-layer metric.
+            <div class="info-card"><h4>Correlation Matrix</h4>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.plotly_chart(correlation_chart(df), use_container_width=True, config={"displayModeBar": False})
+        relation_rows = selected_research_correlations(df)
+        relations = "".join(
+            f"<li>{row.relationship}: <b>{row.correlation:.2f}</b></li>"
+            for row in relation_rows.itertuples(index=False)
+        )
+        st.markdown(
+            f"""
+            <ul>{relations}</ul>
             </div>
-            <div class="info-card">
-                <h4>Possible Applications</h4>
-                <ul>
-                    <li>Telepresence system evaluation & benchmarking</li>
-                    <li>Adaptive interfaces and real-time personalization</li>
-                    <li>User experience analysis & improvement</li>
-                    <li>Robotics & VR/AR system design</li>
-                    <li>Research & academic studies</li>
-                </ul>
+            <div class="info-card"><h4>Top Predictors of Telepresence Quality</h4>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.plotly_chart(feature_importance_chart(df), use_container_width=True, config={"displayModeBar": False})
+        st.markdown(
+            f"""
             </div>
+            {explainability_card(df)}
             </div></div>
             """,
             unsafe_allow_html=True,
