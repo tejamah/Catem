@@ -235,8 +235,8 @@ def top_charts(df: pd.DataFrame) -> go.Figure:
         rows=1,
         cols=2,
         specs=[[{"type": "xy"}, {"type": "polar"}]],
-        subplot_titles=("CATEM Score Trend Over Time", "Layer Contribution to CATEM Score"),
-        horizontal_spacing=0.08,
+        subplot_titles=("CATEM Trend", "Layer Contribution"),
+        horizontal_spacing=0.12,
     )
     minutes, values = score_trend_trace(df)
     fig.add_trace(
@@ -278,18 +278,19 @@ def top_charts(df: pd.DataFrame) -> go.Figure:
         col=2,
     )
     fig.update_layout(
-        height=260,
-        margin=dict(l=36, r=26, t=44, b=34),
+        height=220,
+        margin=dict(l=30, r=20, t=34, b=24),
         paper_bgcolor="white",
         plot_bgcolor="white",
         font=dict(size=10, color="#111827"),
         polar=dict(
-            radialaxis=dict(visible=True, range=[0, 100], tickfont=dict(size=8), gridcolor="#dde6f2"),
-            angularaxis=dict(tickfont=dict(size=9), gridcolor="#dde6f2"),
+            radialaxis=dict(visible=True, range=[0, 100], tickfont=dict(size=7), gridcolor="#dde6f2"),
+            angularaxis=dict(tickfont=dict(size=8), gridcolor="#dde6f2"),
         ),
     )
+    fig.update_annotations(font_size=13)
     fig.update_xaxes(
-        title_text="Time (min)",
+        title_text="",
         tickvals=[0, 5, 10, 15, 20, 25, 30],
         ticktext=["00:00", "05:00", "10:00", "15:00", "20:00", "25:00", "30:00"],
         gridcolor="#eef2f7",
@@ -333,9 +334,9 @@ def scatter_chart(df: pd.DataFrame, x: str, y: str, title: str, color: str, x_la
 
 def scatter_charts(df: pd.DataFrame) -> go.Figure:
     specs = [
-        ("latency_ms", "agency_score", "Latency vs Agency (Embodiment)", "#5d2bc5", "Latency (ms)", "Agency Score"),
-        ("nasa_tlx_score", "task_completion_time", "Workload vs Task Performance", "#ff6b1a", "NASA-TLX Score", "Task Completion Time (s)"),
-        ("tracking_loss", "gsr", "GSR vs System Tracking Loss", "#188b3b", "Tracking Loss Count", "GSR (kOhm)"),
+        ("latency_ms", "agency_score", "Latency vs Agency", "#5d2bc5", "Latency", "Agency"),
+        ("nasa_tlx_score", "task_completion_time", "Workload vs Task", "#ff6b1a", "Workload", "Time"),
+        ("tracking_loss", "gsr", "Tracking vs GSR", "#188b3b", "Tracking", "GSR"),
     ]
     fig = make_subplots(rows=1, cols=3, subplot_titles=[item[2] for item in specs], horizontal_spacing=0.09)
     for idx, (x, y, _title, color, x_label, y_label) in enumerate(specs, start=1):
@@ -361,12 +362,13 @@ def scatter_charts(df: pd.DataFrame) -> go.Figure:
         fig.update_xaxes(title_text=x_label, gridcolor="#eef2f7", row=1, col=idx)
         fig.update_yaxes(title_text=y_label, gridcolor="#eef2f7", row=1, col=idx)
     fig.update_layout(
-        height=225,
-        margin=dict(l=42, r=14, t=42, b=42),
+        height=185,
+        margin=dict(l=34, r=10, t=34, b=28),
         paper_bgcolor="white",
         plot_bgcolor="white",
         font=dict(size=9, color="#111827"),
     )
+    fig.update_annotations(font_size=12)
     return fig
 
 
@@ -383,12 +385,12 @@ def telemetry_chart(df: pd.DataFrame) -> go.Figure:
     fig.add_trace(go.Scatter(x=minutes, y=tracking, mode="lines+markers", name="Tracking Loss", line=dict(color="#0b8f3a", width=2), marker=dict(size=4), yaxis="y2"))
     fig.update_layout(
         title=dict(text="System Telemetry Over Time", x=0.5, font=dict(size=13, color="#111827")),
-        height=205,
-        margin=dict(l=45, r=45, t=38, b=38),
-        xaxis_title="Time (min)",
-        yaxis=dict(title="Latency (ms) / FPS", gridcolor="#eef2f7"),
-        yaxis2=dict(title="Percent Loss / Tracking Loss", overlaying="y", side="right", range=[0, 10]),
-        legend=dict(orientation="h", y=1.18, x=0.43, font=dict(size=9)),
+        height=165,
+        margin=dict(l=36, r=36, t=32, b=24),
+        xaxis_title="",
+        yaxis=dict(title="", gridcolor="#eef2f7"),
+        yaxis2=dict(title="", overlaying="y", side="right", range=[0, 10]),
+        legend=dict(orientation="h", y=1.22, x=0.22, font=dict(size=8)),
         paper_bgcolor="white",
         plot_bgcolor="white",
         font=dict(size=9, color="#111827"),
@@ -402,13 +404,13 @@ def comparison_chart() -> go.Figure:
     colors = ["#5f9bd8", "#5f9bd8", "#5f9bd8", "#5f9bd8", "#5f9bd8", "#6f3cc3"]
     fig = go.Figure(go.Bar(x=vals, y=labels, orientation="h", marker_color=colors, text=vals, textposition="outside"))
     fig.update_layout(
-        height=235,
-        margin=dict(l=120, r=32, t=8, b=36),
-        xaxis=dict(range=[0, 1.0], title="R2 (Higher is better)", gridcolor="#eef2f7"),
+        height=150,
+        margin=dict(l=108, r=24, t=4, b=18),
+        xaxis=dict(range=[0, 1.0], title="", gridcolor="#eef2f7", tickfont=dict(size=8)),
         yaxis=dict(autorange="reversed"),
         paper_bgcolor="white",
         plot_bgcolor="white",
-        font=dict(size=10, color="#111827"),
+        font=dict(size=9, color="#111827"),
         showlegend=False,
     )
     return fig
@@ -434,11 +436,13 @@ def correlation_chart(df: pd.DataFrame) -> go.Figure:
         )
     )
     fig.update_layout(
-        height=245,
-        margin=dict(l=72, r=10, t=8, b=50),
+        height=170,
+        margin=dict(l=62, r=8, t=4, b=36),
         paper_bgcolor="white",
         plot_bgcolor="white",
-        font=dict(size=9, color="#111827"),
+        xaxis=dict(tickfont=dict(size=8)),
+        yaxis=dict(tickfont=dict(size=8)),
+        font=dict(size=8, color="#111827"),
     )
     return fig
 
@@ -466,13 +470,13 @@ def feature_importance_chart(df: pd.DataFrame) -> go.Figure:
         )
     )
     fig.update_layout(
-        height=210,
-        margin=dict(l=118, r=30, t=8, b=32),
-        xaxis=dict(title="Importance", range=[0, max(0.2, float(ranking["importance"].max()) * 1.25)], gridcolor="#eef2f7"),
+        height=155,
+        margin=dict(l=108, r=22, t=4, b=18),
+        xaxis=dict(title="", range=[0, max(0.2, float(ranking["importance"].max()) * 1.25)], gridcolor="#eef2f7", tickfont=dict(size=8)),
         yaxis=dict(autorange="reversed"),
         paper_bgcolor="white",
         plot_bgcolor="white",
-        font=dict(size=10, color="#111827"),
+        font=dict(size=9, color="#111827"),
         showlegend=False,
     )
     return fig
@@ -536,7 +540,7 @@ def apply_styles() -> None:
         #MainMenu, header, footer, [data-testid="stSidebar"] {display: none;}
         .block-container {
             max-width: 1880px;
-            padding: 3.65rem 0.6rem 0.7rem;
+            padding: 3.1rem 0.45rem 0.6rem;
         }
         html, body, [data-testid="stAppViewContainer"] {
             background: #eef4fb;
@@ -544,34 +548,37 @@ def apply_styles() -> None:
         }
         div[data-testid="stVerticalBlock"] {gap: 0.45rem;}
         div[data-testid="stHorizontalBlock"] {gap: 0.55rem;}
+        [data-testid="stPlotlyChart"] {
+            overflow: hidden;
+        }
         .hero {
             color: white;
             background: radial-gradient(circle at 18% 12%, #163c78 0%, #071f50 38%, #04163b 100%);
             border: 1px solid #0d3572;
             border-radius: 8px;
             text-align: center;
-            padding: 8px 18px 10px;
+            padding: 7px 18px 8px;
             box-shadow: inset 0 0 26px rgba(255,255,255,0.08);
         }
         .hero h1 {
             margin: 0;
-            font-size: 40px;
+            font-size: 36px;
             line-height: 1.05;
             font-weight: 900;
             letter-spacing: 0;
         }
         .hero .subtitle {
             color: #ffd232;
-            font-size: 20px;
+            font-size: 18px;
             font-style: italic;
             font-weight: 800;
             margin-top: 2px;
         }
         .hero-strip {
-            margin: 8px auto 0;
+            margin: 7px auto 0;
             display: flex;
             justify-content: center;
-            gap: 68px;
+            gap: 52px;
             font-weight: 700;
             font-size: 13px;
         }
@@ -620,7 +627,7 @@ def apply_styles() -> None:
         .layer-row {
             display: grid;
             grid-template-columns: 66px 1fr 116px;
-            min-height: 76px;
+            min-height: 70px;
             border: 1px solid;
             border-radius: 8px;
             margin-bottom: 7px;
@@ -647,7 +654,7 @@ def apply_styles() -> None:
         .layer-main ul {
             margin: 0;
             padding-left: 14px;
-            font-size: 11px;
+            font-size: 10.5px;
             line-height: 1.22;
             color: #000;
         }
@@ -655,7 +662,7 @@ def apply_styles() -> None:
             display: flex;
             align-items: center;
             padding: 7px 10px;
-            font-size: 11px;
+            font-size: 10.5px;
             line-height: 1.25;
             color: #000;
         }
@@ -684,12 +691,12 @@ def apply_styles() -> None:
             margin-bottom: 8px;
         }
         .metric-card {
-            min-height: 122px;
+            min-height: 102px;
             border: 1px solid #c9d4e5;
             border-radius: 7px;
             background: white;
             text-align: center;
-            padding: 11px 6px 7px;
+            padding: 9px 6px 5px;
         }
         .metric-title {
             min-height: 28px;
@@ -700,7 +707,7 @@ def apply_styles() -> None:
         }
         .metric-value {
             color: #07123a;
-            font-size: 28px;
+            font-size: 25px;
             font-weight: 900;
         }
         .metric-denom {
@@ -715,13 +722,13 @@ def apply_styles() -> None:
         }
         .spark {
             width: 88%;
-            height: 28px;
+            height: 22px;
             margin-top: 2px;
         }
         .inner-nav {
             border-right: 1px solid #cfd9e8;
-            min-height: 650px;
-            padding: 15px 10px;
+            min-height: 570px;
+            padding: 12px 10px;
             background: linear-gradient(180deg, #ffffff 0%, #f6f9fd 100%);
         }
         .nav-title {
@@ -733,7 +740,7 @@ def apply_styles() -> None:
             display: flex;
             gap: 8px;
             align-items: center;
-            padding: 8px 8px;
+            padding: 6px 8px;
             border-radius: 5px;
             font-size: 11px;
             font-weight: 700;
@@ -754,8 +761,8 @@ def apply_styles() -> None:
         }
         .filter-box {
             border-top: 1px solid #cfd9e8;
-            margin-top: 14px;
-            padding-top: 12px;
+            margin-top: 10px;
+            padding-top: 8px;
         }
         .filter-title, .filter-box label {
             display: block;
@@ -793,25 +800,26 @@ def apply_styles() -> None:
             border: 1px solid #c9d4e5;
             border-radius: 7px;
             background: white;
-            padding: 4px 4px 0;
+            padding: 3px 3px 0;
+            overflow: hidden;
         }
         .info-card {
             border: 1px solid #c9d4e5;
             border-radius: 7px;
             background: white;
-            padding: 12px 14px;
-            margin-bottom: 10px;
-            font-size: 13px;
-            line-height: 1.35;
+            padding: 9px 12px;
+            margin-bottom: 8px;
+            font-size: 12px;
+            line-height: 1.28;
         }
         .info-card h4 {
             color: #001b61;
-            font-size: 14px;
-            margin: 0 0 6px;
+            font-size: 13px;
+            margin: 0 0 5px;
             font-weight: 900;
         }
         .info-card ul {
-            margin: 6px 0 0;
+            margin: 5px 0 0;
             padding-left: 18px;
         }
         .insight {
