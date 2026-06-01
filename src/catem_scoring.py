@@ -25,6 +25,7 @@ def normalize_series(series: pd.Series) -> pd.Series:
 def compute_layer_score(df: pd.DataFrame, cols: list[str], invert: bool = False) -> pd.Series:
     normalized = pd.DataFrame({col: normalize_series(df[col]) for col in cols if col in df.columns})
     score = normalized.mean(axis=1)
+    score = score.fillna(0.5)
     if invert:
         score = 1 - score
     return score

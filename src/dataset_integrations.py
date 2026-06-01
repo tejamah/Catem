@@ -55,36 +55,43 @@ ALIASES = {
     "latency_ms": ["latency_ms", "latency", "delay_ms"],
     "packet_loss": ["packet_loss", "loss"],
     "tracking_loss": ["tracking_loss", "tracking_error"],
+    "fps": ["fps", "frame_rate", "hz", "rate"],
+    "jitter": ["jitter", "jitter_ms", "timing_jitter"],
+    "movement_smoothness": ["movement_smoothness", "smoothness", "path_smoothness"],
+    "interaction_frequency": ["interaction_frequency", "interaction_count", "commands", "cmd_count"],
+    "mental_demand": ["mental_demand", "mental", "mental_load"],
+    "effort": ["effort"],
+    "frustration": ["frustration"],
 }
 
 
 DEFAULTS = {
-    "ownership_score": 0.5,
-    "agency_score": 0.5,
-    "self_location_score": 0.5,
-    "presence_score": 0.5,
-    "social_presence_score": 0.5,
-    "task_completion_time": 0.0,
-    "error_rate": 0.0,
-    "movement_smoothness": 0.5,
-    "interaction_frequency": 0.0,
-    "heart_rate": 0.0,
-    "hrv": 0.0,
-    "gsr": 0.0,
-    "eye_fixation": 0.0,
-    "blink_rate": 0.0,
-    "nasa_tlx_score": 0.0,
-    "mental_demand": 0.0,
-    "effort": 0.0,
-    "frustration": 0.0,
-    "latency_ms": 0.0,
-    "fps": 0.0,
-    "jitter": 0.0,
-    "packet_loss": 0.0,
-    "tracking_loss": 0.0,
-    "missing_data_rate": 0.0,
-    "timestamp_accuracy": 1.0,
-    "sensor_sync_error": 0.0,
+    "ownership_score": np.nan,
+    "agency_score": np.nan,
+    "self_location_score": np.nan,
+    "presence_score": np.nan,
+    "social_presence_score": np.nan,
+    "task_completion_time": np.nan,
+    "error_rate": np.nan,
+    "movement_smoothness": np.nan,
+    "interaction_frequency": np.nan,
+    "heart_rate": np.nan,
+    "hrv": np.nan,
+    "gsr": np.nan,
+    "eye_fixation": np.nan,
+    "blink_rate": np.nan,
+    "nasa_tlx_score": np.nan,
+    "mental_demand": np.nan,
+    "effort": np.nan,
+    "frustration": np.nan,
+    "latency_ms": np.nan,
+    "fps": np.nan,
+    "jitter": np.nan,
+    "packet_loss": np.nan,
+    "tracking_loss": np.nan,
+    "missing_data_rate": np.nan,
+    "timestamp_accuracy": np.nan,
+    "sensor_sync_error": np.nan,
 }
 
 
@@ -119,22 +126,76 @@ def finalize_catem_frame(rows: list[dict]) -> pd.DataFrame:
     return df[CATEM_COLUMNS]
 
 
-def integrate_physionet_wearable_csv(path: str | Path, participant_id: str = "physionet") -> pd.DataFrame:
+def integrate_physionet_wearable_csv(path: str | Path, participant_id: str = "physionet", session_id: str | None = None) -> pd.DataFrame:
     """Map a local PhysioNet wearable/stress CSV export into CATEM rows."""
     data_path = resolve_data_path(path)
     raw = pd.read_csv(data_path)
-    row = build_base_row(participant_id, data_path.stem)
+    row = build_base_row(participant_id, session_id or data_path.stem)
     for target, aliases in ALIASES.items():
         col = first_matching_column(raw, aliases)
         if col is not None and pd.api.types.is_numeric_dtype(raw[col]):
             row[target] = float(raw[col].dropna().mean())
 
-    if "heart_rate" in row and row["heart_rate"]:
-        row["physiology_source"] = "PhysioNet"
-    if "hrv" in row and row["hrv"]:
-        row["hrv"] = float(raw[first_matching_column(raw, ALIASES["hrv"])].dropna().std())
+    hrv_col = first_matching_column(raw, ALIASES["hrv"])
+    if hrv_col is not None and pd.api.types.is_numeric_dtype(raw[hrv_col]):
+        row["hrv"] = float(raw[hrv_col].dropna().std())
     row["missing_data_rate"] = float(raw.isna().mean().mean())
     return finalize_catem_frame([row])
+
+
+def integrate_ros_telemetry_csv(path: str | Path, participant_id: str = "ros", session_id: str | None = None) -> pd.DataFrame:
+    """Map ROS/robot telemetry CSV exports into CATEM system and behavior fields."""
+    data_path = resolve_data_path(path)
+    raw = pd.read_csv(data_path)
+    row = build_base_row(participant_id, session_id or data_path.stem)
+    for target in [
+        "latency_ms",
+        "fps",
+        "jitter",
+        "packet_loss",
+        "tracking_loss",
+        "movement_smoothness",
+        "interaction_frequency",
+        "task_completion_time",
+        "error_rate",
+    ]:
+        col = first_matching_column(raw, ALIASES[target])
+        if col is not None and pd.api.types.is_numeric_dtype(raw[col]):
+            row[target] = float(raw[col].dropna().mean())
+
+    timestamp_col = first_matching_column(raw, ["timestamp", "time", "stamp", "ros_time"])
+    if timestamp_col is not None and not raw[timestamp_col].dropna().empty:
+        row["timestamp"] = pd.to_datetime(raw[timestamp_col].dropna().iloc[0], errors="coerce")
+
+    row["missing_data_rate"] = float(raw.isna().mean().mean())
+    return finalize_catem_frame([row])
+
+
+def integrate_nasa_tlx_csv(path: str | Path, participant_id: str = "tlx") -> pd.DataFrame:
+    """Map NASA-TLX survey exports into CATEM workload fields."""
+    data_path = resolve_data_path(path)
+    raw = pd.read_csv(data_path)
+    rows = []
+    group_cols = [col for col in ["participant_id", "session_id"] if col in raw.columns]
+    grouped = raw.groupby(group_cols, dropna=False) if group_cols else [(("tlx", data_path.stem), raw)]
+
+    for key, group in grouped:
+        if not isinstance(key, tuple):
+            key = (key, data_path.stem)
+        participant = str(key[0]) if len(key) > 0 and pd.notna(key[0]) else participant_id
+        session = str(key[1]) if len(key) > 1 and pd.notna(key[1]) else data_path.stem
+        row = build_base_row(participant, session)
+        for target in ["nasa_tlx_score", "mental_demand", "effort", "frustration"]:
+            col = first_matching_column(group, ALIASES[target])
+            if col is not None and pd.api.types.is_numeric_dtype(group[col]):
+                row[target] = float(group[col].dropna().mean())
+        if pd.isna(row["nasa_tlx_score"]):
+            components = [row["mental_demand"], row["effort"], row["frustration"]]
+            valid_components = [value for value in components if pd.notna(value)]
+            row["nasa_tlx_score"] = float(np.mean(valid_components)) if valid_components else np.nan
+        row["missing_data_rate"] = float(group.isna().mean().mean())
+        rows.append(row)
+    return finalize_catem_frame(rows)
 
 
 def integrate_openneuro_bids(root: str | Path) -> pd.DataFrame:
@@ -194,6 +255,21 @@ def integrate_deap_preprocessed_dat(path: str | Path, participant_id: str | None
         row["overall_telepresence_quality"] = float(np.mean([row["presence_score"], row["agency_score"], row["social_presence_score"]]))
         rows.append(row)
     return finalize_catem_frame(rows)
+
+
+def combine_catem_sources(*frames: pd.DataFrame) -> pd.DataFrame:
+    """Combine partial CATEM datasets by participant/session into one analysis table."""
+    non_empty = [frame for frame in frames if frame is not None and not frame.empty]
+    if not non_empty:
+        return finalize_catem_frame([])
+
+    combined = pd.concat(non_empty, ignore_index=True)
+    combined = finalize_catem_frame(combined.to_dict("records"))
+    value_cols = [col for col in CATEM_COLUMNS if col not in {"participant_id", "session_id", "timestamp"}]
+    aggregations = {col: "mean" for col in value_cols}
+    aggregations["timestamp"] = "min"
+    merged = combined.groupby(["participant_id", "session_id"], as_index=False).agg(aggregations)
+    return finalize_catem_frame(merged.to_dict("records"))
 
 
 def save_integrated_dataset(df: pd.DataFrame, output_path: str | Path = "data/processed/catem_external_integrated.csv") -> None:

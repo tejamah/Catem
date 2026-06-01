@@ -26,6 +26,7 @@ from src.dataset_integrations import integrate_physionet_wearable_csv
 df = integrate_physionet_wearable_csv(
     "data/external/physionet/example.csv",
     participant_id="P001",
+    session_id="S01",
 )
 ```
 
@@ -51,6 +52,48 @@ Adapter:
 from src.dataset_integrations import integrate_openneuro_bids
 
 df = integrate_openneuro_bids("data/external/openneuro/dsXXXXXX")
+```
+
+### ROS Telemetry Logs
+
+Useful CATEM layers:
+
+- System
+- Behavior
+- Task performance
+
+Expected local input:
+
+- CSV export from ROS/robot logs containing fields such as latency, FPS/rate, jitter, packet loss, tracking loss, task duration, command counts, path smoothness, or errors
+
+Adapter:
+
+```python
+from src.dataset_integrations import integrate_ros_telemetry_csv
+
+df = integrate_ros_telemetry_csv(
+    "data/external/ros/session_01_telemetry.csv",
+    participant_id="P001",
+    session_id="S01",
+)
+```
+
+### NASA-TLX
+
+Useful CATEM layers:
+
+- Workload
+
+Expected local input:
+
+- CSV survey export with participant/session identifiers and fields such as `nasa_tlx_score`, `mental_demand`, `effort`, or `frustration`
+
+Adapter:
+
+```python
+from src.dataset_integrations import integrate_nasa_tlx_csv
+
+df = integrate_nasa_tlx_csv("data/external/tlx/nasa_tlx.csv")
 ```
 
 ### DEAP
@@ -96,6 +139,8 @@ All adapters return a CATEM-compatible DataFrame with the columns expected by th
 data/
   external/
     physionet/
+    ros/
+    tlx/
     openneuro/
     deap/
   processed/
@@ -105,11 +150,29 @@ data/
 ## Saving Integrated Data
 
 ```python
-from src.dataset_integrations import save_integrated_dataset
+from src.dataset_integrations import (
+    combine_catem_sources,
+    integrate_nasa_tlx_csv,
+    integrate_physionet_wearable_csv,
+    integrate_ros_telemetry_csv,
+    save_integrated_dataset,
+)
 
-save_integrated_dataset(df, "data/processed/catem_external_integrated.csv")
+physiology = integrate_physionet_wearable_csv("data/external/physionet/session_01.csv", "P001", "S01")
+telemetry = integrate_ros_telemetry_csv("data/external/ros/session_01.csv", "P001", "S01")
+workload = integrate_nasa_tlx_csv("data/external/tlx/nasa_tlx.csv")
+
+catem_dataset = combine_catem_sources(physiology, telemetry, workload)
+save_integrated_dataset(catem_dataset, "data/processed/catem_external_integrated.csv")
 ```
 
 ## Important Limitation
 
 Public physiology and neuroscience datasets rarely contain every CATEM layer. For example, DEAP is strong for physiology and affective engagement, but it does not contain teleoperation latency or task telemetry. These datasets should therefore be used as partial validation sources until Cornell or experiment-specific telepresence data is available.
+
+The recommended CATEM strategy is to combine complementary datasets instead of searching for one perfect dataset:
+
+- PhysioNet for HR, HRV, EDA/GSR, stress, and physiology
+- ROS/robot logs for telemetry, navigation, motion, and task behavior
+- NASA-TLX for workload
+- questionnaire or task outcome data for ground-truth telepresence quality
