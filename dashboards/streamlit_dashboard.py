@@ -529,6 +529,145 @@ def nav_panel() -> str:
     )
 
 
+def control_panel(df: pd.DataFrame) -> tuple[str, pd.DataFrame]:
+    pages = [
+        "Overview",
+        "Layer Scores",
+        "Participant Analysis",
+        "Task Performance",
+        "Physiology & Workload",
+        "System Telemetry",
+        "Correlation Analysis",
+        "Feature Importance",
+        "Decision Support",
+        "About CATEM",
+    ]
+    st.markdown("<div class='nav-title'>CATEM Dashboard</div>", unsafe_allow_html=True)
+    page = st.radio("Page", pages, label_visibility="collapsed", key="catem_page")
+
+    st.divider()
+    st.markdown("<div class='filter-title'>Filters</div>", unsafe_allow_html=True)
+    participants = ["All"] + sorted(df["participant_id"].astype(str).unique().tolist())
+    sessions = ["All"] + sorted(df["session_id"].astype(str).unique().tolist())
+    participant = st.selectbox("Participant", participants, key="participant_filter")
+    session = st.selectbox("Session", sessions, key="session_filter")
+
+    filtered = df.copy()
+    if participant != "All":
+        filtered = filtered[filtered["participant_id"].astype(str) == participant]
+    if session != "All":
+        filtered = filtered[filtered["session_id"].astype(str) == session]
+    st.button("Apply Filters", type="primary", use_container_width=True)
+    if filtered.empty:
+        st.warning("No rows match the selected filters. Showing all data instead.")
+        filtered = df.copy()
+    return page, filtered
+
+
+def page_summary(df: pd.DataFrame) -> None:
+    st.dataframe(
+        df[
+            [
+                "participant_id",
+                "session_id",
+                "embodiment_score",
+                "presence_score",
+                "behavior_score",
+                "physiology_score",
+                "workload_risk_score",
+                "system_stability_score",
+                "catem_score",
+            ]
+        ].round(3),
+        use_container_width=True,
+        hide_index=True,
+    )
+
+
+def bar_chart(df: pd.DataFrame, columns: list[str], title: str) -> go.Figure:
+    values = [score_value(df, col) for col in columns]
+    labels = [col.replace("_", " ").replace("score", "").title() for col in columns]
+    fig = go.Figure(go.Bar(x=labels, y=values, marker_color="#1d6ee8", text=[f"{value:.1f}" for value in values], textposition="outside"))
+    fig.update_layout(
+        title=dict(text=title, x=0.5, font=dict(size=14)),
+        height=300,
+        yaxis=dict(range=[0, 105], title="Score"),
+        margin=dict(l=30, r=20, t=44, b=60),
+        paper_bgcolor="white",
+        plot_bgcolor="white",
+        showlegend=False,
+    )
+    return fig
+
+
+def render_page(page: str, df: pd.DataFrame) -> None:
+    if page == "Overview":
+        st.plotly_chart(top_charts(df), use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(scatter_charts(df), use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(telemetry_chart(df), use_container_width=True, config={"displayModeBar": False})
+        return
+
+    if page == "Layer Scores":
+        st.plotly_chart(
+            bar_chart(
+                df,
+                ["embodiment_score", "presence_score", "behavior_score", "physiology_score", "workload_score", "system_stability_score", "data_quality_score"],
+                "CATEM Layer Scores",
+            ),
+            use_container_width=True,
+            config={"displayModeBar": False},
+        )
+        page_summary(df)
+        return
+
+    if page == "Participant Analysis":
+        page_summary(df)
+        st.plotly_chart(line_chart(df), use_container_width=True, config={"displayModeBar": False})
+        return
+
+    if page == "Task Performance":
+        st.plotly_chart(scatter_charts(df), use_container_width=True, config={"displayModeBar": False})
+        st.dataframe(df[["participant_id", "task_completion_time", "error_rate", "movement_smoothness", "interaction_frequency"]], use_container_width=True, hide_index=True)
+        return
+
+    if page == "Physiology & Workload":
+        st.plotly_chart(
+            bar_chart(df, ["physiology_score", "workload_score", "workload_risk_score"], "Physiology and Workload"),
+            use_container_width=True,
+            config={"displayModeBar": False},
+        )
+        st.dataframe(df[["participant_id", "heart_rate", "hrv", "gsr", "nasa_tlx_score", "mental_demand", "effort", "frustration"]], use_container_width=True, hide_index=True)
+        return
+
+    if page == "System Telemetry":
+        st.plotly_chart(telemetry_chart(df), use_container_width=True, config={"displayModeBar": False})
+        st.dataframe(df[["participant_id", "latency_ms", "fps", "jitter", "packet_loss", "tracking_loss", "system_stability_score"]], use_container_width=True, hide_index=True)
+        return
+
+    if page == "Correlation Analysis":
+        st.plotly_chart(correlation_chart(df), use_container_width=True, config={"displayModeBar": False})
+        st.dataframe(selected_research_correlations(df), use_container_width=True, hide_index=True)
+        return
+
+    if page == "Feature Importance":
+        st.plotly_chart(feature_importance_chart(df), use_container_width=True, config={"displayModeBar": False})
+        return
+
+    if page == "Decision Support":
+        st.markdown(explainability_card(df), unsafe_allow_html=True)
+        return
+
+    st.markdown(
+        """
+        <div class="info-card">
+        <h4>About CATEM</h4>
+        CATEM integrates embodiment, presence, behavior, physiology, workload, system telemetry, and data quality into a unified telepresence evaluation model.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def apply_styles() -> None:
     st.markdown(
         """
@@ -541,7 +680,8 @@ def apply_styles() -> None:
             --text: #081537;
             --blue: #1d6ee8;
         }
-        #MainMenu, header, footer, [data-testid="stSidebar"] {display: none;}
+        #MainMenu, footer, [data-testid="stSidebar"] {display: none;}
+        header {visibility: hidden; pointer-events: none;}
         .block-container {
             max-width: 1880px;
             padding: 3.1rem 0.45rem 0.15rem;
@@ -740,6 +880,19 @@ def apply_styles() -> None:
             font-weight: 900;
             margin-bottom: 10px;
         }
+        .stRadio > label, .stSelectbox > label {
+            font-size: 11px;
+            font-weight: 900;
+            color: var(--text);
+        }
+        div[role="radiogroup"] label {
+            min-height: 34px;
+            border-radius: 5px;
+            padding: 4px 6px;
+        }
+        div[role="radiogroup"] label:hover {
+            background: #eef5ff;
+        }
         .nav-item {
             display: flex;
             gap: 8px;
@@ -867,7 +1020,7 @@ def main() -> None:
     left, center, right = st.columns([0.245, 0.56, 0.225], gap="small")
 
     with left:
-        st.markdown(f"<div class='panel'>{section_header('CATEM FRAMEWORK')}<div class='panel-body'>", unsafe_allow_html=True)
+        st.markdown(section_header("CATEM FRAMEWORK"), unsafe_allow_html=True)
         st.markdown(
             "<p class='framework-intro'>CATEM evaluates telepresence quality<br>by integrating multiple cross-layer factors<br>into a single adaptive score.</p>",
             unsafe_allow_html=True,
@@ -884,42 +1037,30 @@ def main() -> None:
                     <b style="color:#001b61;">- 0.10 Workload Risk</b>
                 </div>
             </div>
-            </div></div>
+            </div>
             """,
             unsafe_allow_html=True,
         )
 
     with center:
-        st.markdown(f"<div class='panel'>{section_header('CATEM DASHBOARD <span style=\"font-size:11px;\">(Streamlit)</span>')}", unsafe_allow_html=True)
+        st.markdown(section_header('CATEM DASHBOARD <span style="font-size:11px;">(Streamlit)</span>'), unsafe_allow_html=True)
         nav_col, main_col = st.columns([0.19, 0.81], gap="small")
         with nav_col:
-            st.markdown(nav_panel(), unsafe_allow_html=True)
+            page, filtered_df = control_panel(df)
         with main_col:
             metrics = [
-                ("CATEM Score<br>(Weighted)", score_value(df, "catem_score"), "/100", "#1d6ee8"),
-                ("Embodiment Score", score_value(df, "embodiment_score"), "/100", "#1d6ee8"),
-                ("Presence Score", score_value(df, "presence_score"), "/100", "#1d6ee8"),
-                ("Behavior Score", score_value(df, "behavior_score"), "/100", "#1d6ee8"),
-                ("Workload Risk<br>(NASA-TLX)", score_value(df, "workload_risk_score"), "/100", "#ff6b1a"),
-                ("System Score", score_value(df, "system_stability_score"), "/100", "#2b8c9f"),
+                ("CATEM Score<br>(Weighted)", score_value(filtered_df, "catem_score"), "/100", "#1d6ee8"),
+                ("Embodiment Score", score_value(filtered_df, "embodiment_score"), "/100", "#1d6ee8"),
+                ("Presence Score", score_value(filtered_df, "presence_score"), "/100", "#1d6ee8"),
+                ("Behavior Score", score_value(filtered_df, "behavior_score"), "/100", "#1d6ee8"),
+                ("Workload Risk<br>(NASA-TLX)", score_value(filtered_df, "workload_risk_score"), "/100", "#ff6b1a"),
+                ("System Score", score_value(filtered_df, "system_stability_score"), "/100", "#2b8c9f"),
             ]
             st.markdown("<div class='metric-grid'>" + "".join(metric_card(*item) for item in metrics) + "</div>", unsafe_allow_html=True)
-
-            st.markdown("<div class='chart-card'>", unsafe_allow_html=True)
-            st.plotly_chart(top_charts(df), use_container_width=True, config={"displayModeBar": False})
-            st.markdown("</div>", unsafe_allow_html=True)
-
-            st.markdown("<div class='chart-card'>", unsafe_allow_html=True)
-            st.plotly_chart(scatter_charts(df), use_container_width=True, config={"displayModeBar": False})
-            st.markdown("</div>", unsafe_allow_html=True)
-
-            st.markdown("<div class='chart-card'>", unsafe_allow_html=True)
-            st.plotly_chart(telemetry_chart(df), use_container_width=True, config={"displayModeBar": False})
-            st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+            render_page(page, filtered_df)
 
     with right:
-        st.markdown(f"<div class='panel'>{section_header('VALIDATION & ANALYSIS')}<div class='panel-body'>", unsafe_allow_html=True)
+        st.markdown(section_header("VALIDATION & ANALYSIS"), unsafe_allow_html=True)
         st.markdown(
             """
             <div class="info-card">
@@ -949,8 +1090,8 @@ def main() -> None:
             """,
             unsafe_allow_html=True,
         )
-        st.plotly_chart(correlation_chart(df), use_container_width=True, config={"displayModeBar": False})
-        relation_rows = selected_research_correlations(df)
+        st.plotly_chart(correlation_chart(filtered_df), use_container_width=True, config={"displayModeBar": False})
+        relation_rows = selected_research_correlations(filtered_df)
         relations = "".join(
             f"<li>{row.relationship}: <b>{row.correlation:.2f}</b></li>"
             for row in relation_rows.itertuples(index=False)
@@ -963,12 +1104,11 @@ def main() -> None:
             """,
             unsafe_allow_html=True,
         )
-        st.plotly_chart(feature_importance_chart(df), use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(feature_importance_chart(filtered_df), use_container_width=True, config={"displayModeBar": False})
         st.markdown(
             f"""
             </div>
-            {explainability_card(df)}
-            </div></div>
+            {explainability_card(filtered_df)}
             """,
             unsafe_allow_html=True,
         )
