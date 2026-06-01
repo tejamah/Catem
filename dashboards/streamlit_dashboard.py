@@ -442,34 +442,6 @@ def nav_panel() -> str:
     )
 
 
-def project_tree() -> str:
-    rows = [
-        ("data/", "# raw, processed, synthetic data"),
-        ("src/", "# data processing, scoring, validation"),
-        ("dashboards/", "# Streamlit dashboard"),
-        ("notebooks/", "# EDA, testing, validation notebooks"),
-        ("outputs/", "# figures, reports, results"),
-        ("docs/", "# data dictionary, framework, plans"),
-        ("app.py", "# main app launcher"),
-        ("requirements.txt", ""),
-        ("README.md", ""),
-    ]
-    return "<div class='tree-title'>catem-telepresence-evaluation/</div>" + "".join(
-        f"<div class='tree-row'><span>{name}</span><em>{note}</em></div>" for name, note in rows
-    )
-
-
-def stage_card(number: int, title: str, detail: str, color: str) -> str:
-    return (
-        f'<div class="stage-card" style="border-color:{color}; background:{color}12;">'
-        f'<div class="stage-number" style="background:{color};">{number}</div>'
-        f'<div class="stage-title">{title}</div>'
-        f'<div class="stage-icon">{number}</div>'
-        f"<p>{detail}</p>"
-        "</div>"
-    )
-
-
 def apply_styles() -> None:
     st.markdown(
         """
@@ -767,117 +739,10 @@ def apply_styles() -> None:
             background: #eefaf1;
             border-color: #b7dec4;
         }
-        .bottom-panel {
-            min-height: 246px;
-        }
-        .tree-title {
-            font-size: 12px;
-            font-weight: 900;
-            margin-bottom: 5px;
-        }
-        .tree-row {
-            font-family: Consolas, monospace;
-            font-size: 11px;
-            line-height: 1.45;
-            display: grid;
-            grid-template-columns: 120px 1fr;
-        }
-        .tree-row span::before {
-            content: "|- ";
-            color: #687996;
-        }
-        .tree-row em {
-            color: #182641;
-            font-style: normal;
-        }
-        .stage-wrap {
-            display: grid;
-            grid-template-columns: repeat(7, minmax(0, 1fr));
-            gap: 10px;
-            align-items: stretch;
-        }
-        .stage-card {
-            position: relative;
-            min-height: 126px;
-            border: 1px solid;
-            border-radius: 9px;
-            padding: 16px 7px 8px;
-            text-align: center;
-        }
-        .stage-number {
-            position: absolute;
-            top: -8px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: white;
-            border-radius: 4px;
-            min-width: 18px;
-            height: 18px;
-            line-height: 18px;
-            font-size: 11px;
-            font-weight: 900;
-        }
-        .stage-title {
-            color: #001b61;
-            font-size: 12px;
-            font-weight: 900;
-            min-height: 31px;
-            line-height: 1.15;
-        }
-        .stage-icon {
-            width: 38px;
-            height: 32px;
-            margin: 4px auto;
-            color: #0a2b75;
-            border: 2px solid #0a2b75;
-            border-radius: 5px;
-            font-weight: 900;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .stage-card p {
-            margin: 3px 0 0;
-            font-size: 10.5px;
-            line-height: 1.18;
-        }
-        .outputs-list {
-            font-size: 12px;
-            line-height: 1.9;
-            font-weight: 700;
-        }
-        .goal-card {
-            border: 2px solid #8095be;
-            border-radius: 7px;
-            min-height: 202px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            color: #001b61;
-            font-weight: 900;
-            padding: 12px;
-        }
-        .goal-trophy {
-            color: #f0ad1e;
-            font-size: 46px;
-            line-height: 1;
-        }
-        .goal-card h3 {
-            margin: 7px 0;
-            font-size: 19px;
-        }
-        .goal-card p {
-            margin: 0;
-            font-size: 16px;
-            line-height: 1.25;
-        }
         @media (max-width: 1200px) {
             .hero h1 {font-size: 30px;}
             .hero-strip {gap: 18px; flex-wrap: wrap;}
             .metric-grid {grid-template-columns: repeat(3, minmax(0, 1fr));}
-            .stage-wrap {grid-template-columns: repeat(2, minmax(0, 1fr));}
             .layer-row {grid-template-columns: 54px 1fr;}
             .layer-desc {grid-column: 1 / -1; min-height: 40px; border-top: 1px solid #d6dfeb;}
         }
@@ -1001,55 +866,6 @@ def main() -> None:
             """,
             unsafe_allow_html=True,
         )
-
-    bottom_left, bottom_mid, bottom_right = st.columns([0.185, 0.56, 0.255], gap="small")
-    with bottom_left:
-        st.markdown(f"<div class='panel bottom-panel'>{section_header('PROJECT STRUCTURE')}<div class='panel-body'>{project_tree()}</div></div>", unsafe_allow_html=True)
-    with bottom_mid:
-        stages = [
-            (1, "Literature Review<br>& Framework Development", "Define layers, metrics and hypotheses.", "#6f3cc3"),
-            (2, "Data Collection<br>& Preparation", "Create/collect data, clean, synchronize, preprocess.", "#1d6ee8"),
-            (3, "CATEM Scoring<br>Engine", "Compute layer scores and overall CATEM score.", "#1a9b4b"),
-            (4, "Dashboard &<br>Visualization", "Build interactive dashboard for analysis and insights.", "#f0a31a"),
-            (5, "Validation &<br>Testing", "Statistical modeling, comparison and validation.", "#f06423"),
-            (6, "Integration with<br>Cornell Data", "Map real data and re-validate.", "#2167c8"),
-            (7, "Research Output<br>& Publication", "Results, paper, code dataset and presentations.", "#6f3cc3"),
-        ]
-        st.markdown(
-            f"<div class='panel bottom-panel'>{section_header('PROJECT STAGES')}<div class='panel-body'><div class='stage-wrap'>"
-            + "".join(stage_card(*stage) for stage in stages)
-            + "</div></div></div>",
-            unsafe_allow_html=True,
-        )
-    with bottom_right:
-        out, goal = st.columns([0.48, 0.52], gap="small")
-        with out:
-            st.markdown(
-                f"""
-                <div class='panel bottom-panel'>{section_header('FINAL OUTPUTS')}
-                    <div class='panel-body outputs-list'>
-                        <div>CATEM Interactive Dashboard</div>
-                        <div>Validated Framework & Model</div>
-                        <div>Research Report & Paper</div>
-                        <div>GitHub Repository</div>
-                        <div>Presentation & Demonstration</div>
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-        with goal:
-            st.markdown(
-                """
-                <div class="goal-card">
-                    <div class="goal-trophy">T</div>
-                    <h3>Goal</h3>
-                    <p>A Unified, Data-Driven<br>Evaluation of<br>Telepresence Quality</p>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
 
 if __name__ == "__main__":
     main()
