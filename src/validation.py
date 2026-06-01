@@ -58,44 +58,42 @@ def top_predictors(df: pd.DataFrame, features: list[str], target: str = "catem_s
 
 
 def explain_score_drop(row: pd.Series, df: pd.DataFrame) -> list[str]:
-    """Explain why a row underperformed relative to the sample distribution."""
+    """Explain risk drivers for one participant using stable CATEM thresholds."""
     reasons = []
-    checks = [
-        ("latency_ms", "High latency", "high"),
-        ("nasa_tlx_score", "High workload", "high"),
-        ("tracking_loss", "Tracking instability", "high"),
-        ("packet_loss", "Packet loss", "high"),
-        ("agency_score", "Low agency", "low"),
-        ("presence_score", "Low presence", "low"),
-        ("hrv", "Reduced HRV", "low"),
-    ]
-    for col, label, direction in checks:
-        if col not in df.columns or col not in row:
-            continue
-        if direction == "high" and row[col] >= df[col].quantile(0.70):
-            reasons.append(label)
-        if direction == "low" and row[col] <= df[col].quantile(0.30):
-            reasons.append(label)
+    if row.get("workload_risk_score", 0) >= 0.60:
+        reasons.append("High workload")
+    if row.get("system_stability_score", 1) <= 0.50:
+        if row.get("latency_ms", 0) >= df["latency_ms"].quantile(0.70):
+            reasons.append("High latency")
+        if row.get("tracking_loss", 0) >= df["tracking_loss"].quantile(0.70):
+            reasons.append("Tracking instability")
+        if row.get("packet_loss", 0) >= df["packet_loss"].quantile(0.70):
+            reasons.append("Packet loss")
+    if row.get("agency_score", 1) <= 0.35:
+        reasons.append("Low agency")
+    if row.get("presence_score", 1) <= 0.35:
+        reasons.append("Low presence")
+    if row.get("hrv", df["hrv"].median()) <= df["hrv"].quantile(0.30):
+        reasons.append("Reduced HRV")
     return reasons[:4] or ["No major risk driver detected"]
 
 
 def generate_recommendations(row: pd.Series, df: pd.DataFrame) -> list[str]:
-    """Map detected CATEM risks to actionable system recommendations."""
+    """Map participant-specific CATEM risks to actionable system recommendations."""
     recommendations = []
-    rules = [
-        ("latency_ms", "high", "Reduce network load or switch to a lower-latency connection."),
-        ("nasa_tlx_score", "high", "Simplify the operator interface or reduce concurrent task demands."),
-        ("tracking_loss", "high", "Recalibrate tracking sensors and inspect occlusion or lighting conditions."),
-        ("packet_loss", "high", "Stabilize network transport and monitor packet-loss spikes."),
-        ("agency_score", "low", "Improve control responsiveness and feedback timing."),
-        ("presence_score", "low", "Increase spatial cues, visual continuity, or audio/social presence support."),
-        ("hrv", "low", "Flag possible operator strain and consider a rest or workload adjustment."),
-    ]
-    for col, direction, recommendation in rules:
-        if col not in df.columns or col not in row:
-            continue
-        if direction == "high" and row[col] >= df[col].quantile(0.70):
-            recommendations.append(recommendation)
-        if direction == "low" and row[col] <= df[col].quantile(0.30):
-            recommendations.append(recommendation)
+    if row.get("system_stability_score", 1) <= 0.50:
+        if row.get("latency_ms", 0) >= df["latency_ms"].quantile(0.70):
+            recommendations.append("Reduce network load or switch to a lower-latency connection.")
+        if row.get("tracking_loss", 0) >= df["tracking_loss"].quantile(0.70):
+            recommendations.append("Recalibrate tracking sensors and inspect occlusion or lighting conditions.")
+        if row.get("packet_loss", 0) >= df["packet_loss"].quantile(0.70):
+            recommendations.append("Stabilize network transport and monitor packet-loss spikes.")
+    if row.get("workload_risk_score", 0) >= 0.60:
+        recommendations.append("Simplify the operator interface or reduce concurrent task demands.")
+    if row.get("agency_score", 1) <= 0.35:
+        recommendations.append("Improve control responsiveness and feedback timing.")
+    if row.get("presence_score", 1) <= 0.35:
+        recommendations.append("Increase spatial cues, visual continuity, or audio/social presence support.")
+    if row.get("hrv", df["hrv"].median()) <= df["hrv"].quantile(0.30):
+        recommendations.append("Flag possible operator strain and consider a rest or workload adjustment.")
     return recommendations[:4] or ["Continue monitoring; no immediate intervention is recommended."]

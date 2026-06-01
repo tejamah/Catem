@@ -482,16 +482,18 @@ def feature_importance_chart(df: pd.DataFrame) -> go.Figure:
     return fig
 
 
-def explainability_card(df: pd.DataFrame) -> str:
-    lowest = df.sort_values("catem_score").iloc[0]
-    reasons = explain_score_drop(lowest, df)
-    recommendations = generate_recommendations(lowest, df)
+def explainability_card(df: pd.DataFrame, reference_df: pd.DataFrame | None = None) -> str:
+    reference = reference_df if reference_df is not None else df
+    selected = df.sort_values("catem_score").iloc[0]
+    reasons = explain_score_drop(selected, reference)
+    recommendations = generate_recommendations(selected, reference)
     reason_items = "".join(f"<li>{reason}</li>" for reason in reasons)
     recommendation_items = "".join(f"<li>{recommendation}</li>" for recommendation in recommendations)
     return (
         '<div class="info-card insight">'
         "<h4>Decision Support</h4>"
-        f"<b>Why did {lowest['participant_id']} score lower?</b>"
+        f"<b>Participant {selected['participant_id']} analysis</b>"
+        f"<div>CATEM Score: <b>{float(selected['catem_score']) * 100:.1f}/100</b></div>"
         f"<ul>{reason_items}</ul>"
         "<b>Recommended actions</b>"
         f"<ul>{recommendation_items}</ul>"
@@ -663,7 +665,7 @@ def render_page(page: str, df: pd.DataFrame) -> None:
         return
 
     if page == "Decision Support":
-        st.markdown(explainability_card(df), unsafe_allow_html=True)
+        st.markdown(explainability_card(df, load_and_score()), unsafe_allow_html=True)
         return
 
     st.markdown(
@@ -1122,7 +1124,7 @@ def main() -> None:
         st.markdown(
             f"""
             </div>
-            {explainability_card(filtered_df)}
+            {explainability_card(filtered_df, df)}
             """,
             unsafe_allow_html=True,
         )
