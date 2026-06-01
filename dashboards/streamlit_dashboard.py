@@ -12,7 +12,7 @@ sys.path.append(str(ROOT_DIR))
 
 from src.catem_scoring import compute_catem_scores
 from src.data_loader import load_data
-from src.validation import explain_score_drop, selected_research_correlations, top_predictors
+from src.validation import explain_score_drop, generate_recommendations, selected_research_correlations, top_predictors
 
 
 LAYER_META = [
@@ -485,12 +485,16 @@ def feature_importance_chart(df: pd.DataFrame) -> go.Figure:
 def explainability_card(df: pd.DataFrame) -> str:
     lowest = df.sort_values("catem_score").iloc[0]
     reasons = explain_score_drop(lowest, df)
+    recommendations = generate_recommendations(lowest, df)
     reason_items = "".join(f"<li>{reason}</li>" for reason in reasons)
+    recommendation_items = "".join(f"<li>{recommendation}</li>" for recommendation in recommendations)
     return (
         '<div class="info-card insight">'
-        "<h4>Explainability</h4>"
+        "<h4>Decision Support</h4>"
         f"<b>Why did {lowest['participant_id']} score lower?</b>"
         f"<ul>{reason_items}</ul>"
+        "<b>Recommended actions</b>"
+        f"<ul>{recommendation_items}</ul>"
         "</div>"
     )
 
@@ -505,7 +509,7 @@ def nav_panel() -> str:
         ("System Telemetry", False),
         ("Correlation Analysis", False),
         ("Feature Importance", False),
-        ("Explainability", False),
+        ("Decision Support", False),
         ("About CATEM", False),
     ]
     rows = "".join(f"<div class='nav-item {'active' if active else ''}'><span></span>{name}</div>" for name, active in items)
@@ -920,7 +924,7 @@ def main() -> None:
             """
             <div class="info-card">
                 <h4>Objective</h4>
-                Test whether CATEM better explains/predicts telepresence quality compared to single metrics.
+                Use CATEM as a decision-support layer for diagnosing telepresence quality and prioritizing improvements.
                 <hr>
                 <h4>Validation Methods</h4>
                 <ul>
@@ -930,6 +934,7 @@ def main() -> None:
                     <li>Random Forest Regression</li>
                     <li>Feature Importance</li>
                     <li>Prediction Accuracy (R2, MAE, RMSE)</li>
+                    <li>Root-Cause Recommendations</li>
                 </ul>
             </div>
             <div class="info-card"><h4>Comparison (Example Result)</h4>

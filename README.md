@@ -2,7 +2,7 @@
 
 CATEM is a Cross-Layer Adaptive Telepresence Evaluation Model for modeling, validating, and visualizing telepresence quality across human, behavioral, physiological, system, and data-quality factors.
 
-The project includes synthetic sample data, a literature-weighted CATEM scoring engine, validation utilities, and a Streamlit dashboard for multimodal analysis.
+The project is moving from a framework and dashboard toward a telepresence decision-support platform: researchers upload multimodal study data, CATEM scores the session, explains quality risks, and recommends improvements.
 
 ## What CATEM Integrates
 
@@ -29,7 +29,17 @@ CATEM =
 - 0.10 Workload Risk
 ```
 
-The dashboard also includes data-driven validation tools: correlation analysis, feature importance, and explainability for low-scoring sessions.
+The dashboard also includes data-driven validation tools: correlation analysis, feature importance, explainability for low-scoring sessions, and recommendation generation.
+
+## Decision Support
+
+CATEM is designed to convert analytics into action:
+
+- high latency -> reduce network load or optimize streaming
+- high workload -> simplify the interface or reduce concurrent task demands
+- tracking instability -> recalibrate sensors
+- low agency -> improve control responsiveness and feedback timing
+- low presence -> strengthen spatial, visual, audio, or social cues
 
 ## Project Structure
 
@@ -40,6 +50,7 @@ The dashboard also includes data-driven validation tools: correlation analysis, 
 - `notebooks/` - exploratory and validation notebooks
 - `outputs/` - generated figures, reports, and results
 - `docs/` - CATEM framework and validation documentation
+  - `docs/platform_roadmap.md` - path from framework to decision-support platform
 
 ## Getting Started
 
@@ -66,3 +77,12 @@ streamlit run dashboards/streamlit_dashboard.py
 ## Research Direction
 
 This repository represents the CATEM implementation stage. The next validation step is to map real Cornell telepresence data into the same layers, compare CATEM against single-layer metrics, and report learned model weights from regression or tree-based models.
+
+The intended project evolution is:
+
+```text
+Framework
+-> Decision Support System
+-> Real Users
+-> Real Value
+```

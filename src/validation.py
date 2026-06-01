@@ -77,3 +77,25 @@ def explain_score_drop(row: pd.Series, df: pd.DataFrame) -> list[str]:
         if direction == "low" and row[col] <= df[col].quantile(0.30):
             reasons.append(label)
     return reasons[:4] or ["No major risk driver detected"]
+
+
+def generate_recommendations(row: pd.Series, df: pd.DataFrame) -> list[str]:
+    """Map detected CATEM risks to actionable system recommendations."""
+    recommendations = []
+    rules = [
+        ("latency_ms", "high", "Reduce network load or switch to a lower-latency connection."),
+        ("nasa_tlx_score", "high", "Simplify the operator interface or reduce concurrent task demands."),
+        ("tracking_loss", "high", "Recalibrate tracking sensors and inspect occlusion or lighting conditions."),
+        ("packet_loss", "high", "Stabilize network transport and monitor packet-loss spikes."),
+        ("agency_score", "low", "Improve control responsiveness and feedback timing."),
+        ("presence_score", "low", "Increase spatial cues, visual continuity, or audio/social presence support."),
+        ("hrv", "low", "Flag possible operator strain and consider a rest or workload adjustment."),
+    ]
+    for col, direction, recommendation in rules:
+        if col not in df.columns or col not in row:
+            continue
+        if direction == "high" and row[col] >= df[col].quantile(0.70):
+            recommendations.append(recommendation)
+        if direction == "low" and row[col] <= df[col].quantile(0.30):
+            recommendations.append(recommendation)
+    return recommendations[:4] or ["Continue monitoring; no immediate intervention is recommended."]
