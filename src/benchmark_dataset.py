@@ -182,7 +182,12 @@ def validate_benchmark(benchmark_df: pd.DataFrame) -> pd.DataFrame:
         available = [feature for feature in features if feature in benchmark_df.columns]
         if not available:
             continue
+        feature_frame = benchmark_df[available]
+        if feature_frame.dropna(how="all").empty:
+            continue
         group_score = benchmark_df[available].mean(axis=1)
+        if group_score.dropna().shape[0] < 2:
+            continue
         rows.append(
             {
                 "model": model_name,
@@ -207,7 +212,11 @@ def validate_benchmark(benchmark_df: pd.DataFrame) -> pd.DataFrame:
         "agency_score",
         "presence_score",
     ]
-    available = [feature for feature in candidate_features if feature in benchmark_df.columns]
+    available = [
+        feature
+        for feature in candidate_features
+        if feature in benchmark_df.columns and not benchmark_df[feature].dropna().empty
+    ]
     if len(available) >= 2 and len(benchmark_df) >= 2:
         X = benchmark_df[available].fillna(benchmark_df[available].median(numeric_only=True)).fillna(0)
         y = target.fillna(target.mean())
@@ -240,6 +249,108 @@ def build_catem_benchmark_v1(
     benchmark = catem_to_benchmark_schema(combined, source_dataset="catem_benchmark_v1")
     benchmark = score_benchmark_layers(benchmark)
     long_df = normalize_to_long_format(benchmark)
+    validation_df = validate_benchmark(benchmark)
+
+    save_data(benchmark, output_path)
+    save_data(long_df, long_output_path)
+    save_data(validation_df, validation_output_path)
+    return benchmark
+
+
+def normalize_series_with_bounds(series: pd.Series, low: float | None = None, high: float | None = None) -> pd.Series:
+    min_value = series.min() if low is None else low
+    max_value = series.max() if high is None else high
+    if pd.isna(min_value) or pd.isna(max_value) or min_value == max_value:
+        return pd.Series(0.5, index=series.index)
+    return ((series - min_value) / (max_value - min_value)).clip(0, 1)
+
+
+def load_tlx_benchmark_rows(path: str | Path, condition: str) -> pd.DataFrame:
+    """Map NASA-TLX clinician CSV exports into CATEM Benchmark v1 rows."""
+    raw = pd.read_csv(path)
+    rows = []
+    for _, row in raw.iterrows():
+        mental = float(row.get("mental_demand", np.nan))
+        physical = float(row.get("physical_demand", np.nan))
+        temporal = float(row.get("temporal_demand", np.nan))
+        effort = float(row.get("effort", np.nan))
+        frustration = float(row.get("frustration", np.nan))
+        performance_raw = float(row.get("performance", np.nan))
+        workload_values = [mental, physical, temporal, effort, frustration]
+        tlx_total = float(np.nanmean(workload_values))
+        performance_score = normalize_series_with_bounds(pd.Series([performance_raw]), 1, 20).iloc[0]
+        rows.append(
+            {
+                "participant_id": f"clinician_{int(row['physician_number']):02d}",
+                "session_id": condition,
+                "task_id": f"nasa_tlx_{condition}",
+                "timestamp": pd.Timestamp("2026-01-01"),
+                "mental_demand": mental,
+                "physical_demand": physical,
+                "temporal_demand": temporal,
+                "effort": effort,
+                "frustration": frustration,
+                "nasa_tlx_total": tlx_total,
+                "success_rate": performance_score,
+                "overall_telepresence_quality": performance_score,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def load_roboturk_metric_rows(result_dir: str | Path) -> pd.DataFrame:
+    """Map RoboTurk PSNR/SSIM result curves into benchmark rows."""
+    result_path = Path(result_dir)
+    task_files = {
+        "bair_action": ("psnr_bair_action.csv", "ssim_bair_action.csv"),
+        "sawyer_laundry_layout": ("psnr_laundry_layout.csv", "ssim_laundry_layout.csv"),
+        "sawyer_tower_creation": ("psnr_tower_creation.csv", "ssim_tower_creation.csv"),
+    }
+    rows = []
+    for task_id, (psnr_file, ssim_file) in task_files.items():
+        psnr = pd.read_csv(result_path / psnr_file, header=None)[0].astype(float)
+        ssim = pd.read_csv(result_path / ssim_file, header=None)[0].astype(float)
+        psnr_quality = normalize_series_with_bounds(psnr, 15, 35)
+        ssim_quality = normalize_series_with_bounds(ssim, 0.5, 1.0)
+        for frame_index, (psnr_value, ssim_value) in enumerate(zip(psnr, ssim)):
+            quality = float(np.mean([psnr_quality.iloc[frame_index], ssim_quality.iloc[frame_index]]))
+            rows.append(
+                {
+                    "participant_id": "roboturk_operator_pool",
+                    "session_id": task_id,
+                    "task_id": task_id,
+                    "timestamp": pd.Timestamp("2026-01-01") + pd.Timedelta(seconds=int(frame_index)),
+                    "tracking_error": float(1 - ssim_value),
+                    "error_rate": float(1 - ssim_quality.iloc[frame_index]),
+                    "success_rate": float(ssim_quality.iloc[frame_index]),
+                    "path_efficiency": float(psnr_quality.iloc[frame_index]),
+                    "overall_telepresence_quality": quality,
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def build_benchmark_from_user_files(
+    demographics_path: str | Path,
+    tlx_assistant_path: str | Path,
+    tlx_current_path: str | Path,
+    roboturk_results_dir: str | Path,
+    output_path: str | Path = "data/processed/catem_benchmark_user_data.csv",
+    long_output_path: str | Path = "data/processed/catem_benchmark_user_data_long.csv",
+    validation_output_path: str | Path = "outputs/catem_benchmark_user_validation.csv",
+) -> pd.DataFrame:
+    """Build a CATEM benchmark from the provided TLX and RoboTurk files."""
+    _demographics = pd.read_csv(demographics_path)
+    tlx_assistant = load_tlx_benchmark_rows(tlx_assistant_path, "assistant")
+    tlx_current = load_tlx_benchmark_rows(tlx_current_path, "current")
+    roboturk = load_roboturk_metric_rows(roboturk_results_dir)
+
+    raw_benchmark = pd.concat([tlx_assistant, tlx_current, roboturk], ignore_index=True)
+    for col in BENCHMARK_COLUMNS:
+        if col not in raw_benchmark.columns:
+            raw_benchmark[col] = np.nan
+    benchmark = score_benchmark_layers(raw_benchmark[BENCHMARK_COLUMNS])
+    long_df = normalize_to_long_format(benchmark, source_dataset="catem_user_benchmark")
     validation_df = validate_benchmark(benchmark)
 
     save_data(benchmark, output_path)

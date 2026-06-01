@@ -67,6 +67,12 @@ It creates:
 
 See `docs/catem_benchmark_v1.md` for the full five-stage benchmark pipeline.
 
+To build the benchmark from the local NASA-TLX and RoboTurk files in `Downloads`:
+
+```bash
+python scripts/build_user_catem_benchmark.py
+```
+
 ## Decision Support
 
 CATEM is designed to convert analytics into action:

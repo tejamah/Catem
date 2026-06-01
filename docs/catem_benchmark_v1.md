@@ -121,6 +121,43 @@ data/processed/catem_benchmark_v1_long.csv
 outputs/catem_benchmark_validation.csv
 ```
 
+## Build From Provided Local Files
+
+If the NASA-TLX and RoboTurk files are in `Downloads`, run:
+
+```bash
+python scripts/build_user_catem_benchmark.py
+```
+
+Expected inputs:
+
+```text
+Downloads/Demographics.csv
+Downloads/nasatlx_assistant.csv
+Downloads/nasatlx_current.csv
+Downloads/roboturk_real_dataset-master/roboturk_real_dataset-master/results/
+  psnr_bair_action.csv
+  psnr_laundry_layout.csv
+  psnr_tower_creation.csv
+  ssim_bair_action.csv
+  ssim_laundry_layout.csv
+  ssim_tower_creation.csv
+```
+
+Generated files:
+
+```text
+data/processed/catem_benchmark_user_data.csv
+data/processed/catem_benchmark_user_data_long.csv
+outputs/catem_benchmark_user_validation.csv
+```
+
+Mapping:
+
+- NASA-TLX assistant/current files -> workload and task performance proxy
+- RoboTurk PSNR/SSIM curves -> system/performance quality proxy
+- Demographics file -> inspected for participant metadata, but not added to the master benchmark schema unless a study-specific metadata table is needed
+
 ## Current Status
 
 The code path is complete. Until the external datasets are downloaded into `data/external/`, the build command uses the project synthetic CATEM sample as a working benchmark seed so the schema, layer scoring, and validation pipeline are executable end to end.
