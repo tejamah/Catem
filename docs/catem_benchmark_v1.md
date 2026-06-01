@@ -143,6 +143,7 @@ Downloads/roboturk_real_dataset-master/roboturk_real_dataset-master/results/
   ssim_laundry_layout.csv
   ssim_tower_creation.csv
 Downloads/dataset-main/concatenated_data_zenodo.xlsx
+Downloads/robot_anomaly_full.csv
 ```
 
 Generated files:
@@ -158,6 +159,7 @@ Mapping:
 - NASA-TLX assistant/current files -> workload and task performance proxy
 - RoboTurk PSNR/SSIM curves -> system/performance quality proxy
 - Zenodo workbook -> NASA-TLX, SART/SPAM, simulator logs, watch EDA/pulse/temperature, AI-support measures
+- Robot anomaly CSV -> latency, message rate, scan validity, anomaly/error rate, motion stability, battery/system health
 - Demographics file -> inspected for participant metadata, but not added to the master benchmark schema unless a study-specific metadata table is needed
 
 ## Current Status

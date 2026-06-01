@@ -333,12 +333,52 @@ def load_roboturk_metric_rows(result_dir: str | Path) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def load_robot_anomaly_rows(path: str | Path) -> pd.DataFrame:
+    """Map robot anomaly telemetry into CATEM Benchmark v1 rows."""
+    raw = pd.read_csv(path)
+    rows = []
+    grouped = raw.groupby(["robot_namespace", "environment"], dropna=False)
+    for (robot, environment), group in grouped:
+        anomaly_rate = float(group["anomaly"].mean())
+        scan_quality = float(group["scan_valid_pct"].mean())
+        message_rate = float(group["message_rate_hz"].mean())
+        latency = float(group["network_latency_ms"].mean())
+        cpu_usage = float(group["cpu_usage"].mean())
+        battery_pct = float(group["battery_pct"].mean())
+        motion_stability = 1 - normalize_series_with_bounds(
+            pd.Series([group["imu_gyro_z"].abs().mean()]),
+            float(raw["imu_gyro_z"].abs().min()),
+            float(raw["imu_gyro_z"].abs().max()),
+        ).iloc[0]
+        success_rate = float(np.clip(1 - anomaly_rate, 0, 1))
+        rows.append(
+            {
+                "participant_id": str(robot),
+                "session_id": str(environment),
+                "task_id": f"robot_anomaly_{environment}",
+                "timestamp": pd.to_datetime(group["timestamp"].min(), errors="coerce"),
+                "latency_ms": latency,
+                "tracking_error": float(1 - scan_quality),
+                "packet_loss": float(1 - normalize_series_with_bounds(pd.Series([message_rate]), 1, 75).iloc[0]),
+                "jitter": float(group["network_latency_ms"].std()),
+                "fps": message_rate,
+                "error_rate": anomaly_rate,
+                "success_rate": success_rate,
+                "path_efficiency": motion_stability,
+                "overall_telepresence_quality": float(np.mean([success_rate, scan_quality, motion_stability, battery_pct / 100])),
+                "cpu_usage": cpu_usage,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
 def build_benchmark_from_user_files(
     demographics_path: str | Path,
     tlx_assistant_path: str | Path,
     tlx_current_path: str | Path,
     roboturk_results_dir: str | Path,
     zenodo_workbook_path: str | Path | None = None,
+    robot_anomaly_path: str | Path | None = None,
     output_path: str | Path = "data/processed/catem_benchmark_user_data.csv",
     long_output_path: str | Path = "data/processed/catem_benchmark_user_data_long.csv",
     validation_output_path: str | Path = "outputs/catem_benchmark_user_validation.csv",
@@ -351,6 +391,8 @@ def build_benchmark_from_user_files(
     source_frames = [tlx_assistant, tlx_current, roboturk]
     if zenodo_workbook_path is not None and Path(zenodo_workbook_path).exists():
         source_frames.append(load_zenodo_human_state_rows(zenodo_workbook_path))
+    if robot_anomaly_path is not None and Path(robot_anomaly_path).exists():
+        source_frames.append(load_robot_anomaly_rows(robot_anomaly_path))
 
     raw_benchmark = pd.concat(source_frames, ignore_index=True)
     for col in BENCHMARK_COLUMNS:
