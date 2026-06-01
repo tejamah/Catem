@@ -17,6 +17,7 @@ def main() -> None:
         tlx_assistant_path=DOWNLOADS / "nasatlx_assistant.csv",
         tlx_current_path=DOWNLOADS / "nasatlx_current.csv",
         roboturk_results_dir=ROBOTURK_RESULTS,
+        zenodo_workbook_path=DOWNLOADS / "dataset-main" / "concatenated_data_zenodo.xlsx",
     )
     print(f"Built CATEM user benchmark with {len(benchmark)} rows")
     print("Wrote data/processed/catem_benchmark_user_data.csv")

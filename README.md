@@ -73,6 +73,8 @@ To build the benchmark from the local NASA-TLX and RoboTurk files in `Downloads`
 python scripts/build_user_catem_benchmark.py
 ```
 
+This command also includes `Downloads/dataset-main/concatenated_data_zenodo.xlsx` when present, mapping TLX, SART/SPAM, simulator logs, watch data, and AI-support questions into the CATEM benchmark schema.
+
 ## Decision Support
 
 CATEM is designed to convert analytics into action:

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import re
+import zipfile
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import numpy as np
@@ -335,6 +338,7 @@ def build_benchmark_from_user_files(
     tlx_assistant_path: str | Path,
     tlx_current_path: str | Path,
     roboturk_results_dir: str | Path,
+    zenodo_workbook_path: str | Path | None = None,
     output_path: str | Path = "data/processed/catem_benchmark_user_data.csv",
     long_output_path: str | Path = "data/processed/catem_benchmark_user_data_long.csv",
     validation_output_path: str | Path = "outputs/catem_benchmark_user_validation.csv",
@@ -344,8 +348,11 @@ def build_benchmark_from_user_files(
     tlx_assistant = load_tlx_benchmark_rows(tlx_assistant_path, "assistant")
     tlx_current = load_tlx_benchmark_rows(tlx_current_path, "current")
     roboturk = load_roboturk_metric_rows(roboturk_results_dir)
+    source_frames = [tlx_assistant, tlx_current, roboturk]
+    if zenodo_workbook_path is not None and Path(zenodo_workbook_path).exists():
+        source_frames.append(load_zenodo_human_state_rows(zenodo_workbook_path))
 
-    raw_benchmark = pd.concat([tlx_assistant, tlx_current, roboturk], ignore_index=True)
+    raw_benchmark = pd.concat(source_frames, ignore_index=True)
     for col in BENCHMARK_COLUMNS:
         if col not in raw_benchmark.columns:
             raw_benchmark[col] = np.nan
@@ -357,3 +364,126 @@ def build_benchmark_from_user_files(
     save_data(long_df, long_output_path)
     save_data(validation_df, validation_output_path)
     return benchmark
+
+
+def excel_column_index(cell_ref: str) -> int:
+    letters = re.sub(r"[^A-Z]", "", cell_ref.upper())
+    index = 0
+    for letter in letters:
+        index = index * 26 + (ord(letter) - ord("A") + 1)
+    return index - 1
+
+
+def read_xlsx_sheet(path: str | Path, sheet_name: str) -> pd.DataFrame:
+    """Read a simple xlsx sheet using stdlib XML parsing."""
+    ns = {"a": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+    with zipfile.ZipFile(path) as workbook:
+        shared_strings = []
+        if "xl/sharedStrings.xml" in workbook.namelist():
+            root = ET.fromstring(workbook.read("xl/sharedStrings.xml"))
+            for item in root.findall("a:si", ns):
+                shared_strings.append("".join(text.text or "" for text in item.findall(".//a:t", ns)))
+
+        workbook_root = ET.fromstring(workbook.read("xl/workbook.xml"))
+        sheet_names = [sheet.attrib["name"] for sheet in workbook_root.findall("a:sheets/a:sheet", ns)]
+        if sheet_name not in sheet_names:
+            raise ValueError(f"Sheet {sheet_name!r} not found. Available sheets: {sheet_names}")
+        sheet_index = sheet_names.index(sheet_name) + 1
+        sheet_root = ET.fromstring(workbook.read(f"xl/worksheets/sheet{sheet_index}.xml"))
+
+        parsed_rows = []
+        for row in sheet_root.findall("a:sheetData/a:row", ns):
+            values = {}
+            for cell in row.findall("a:c", ns):
+                cell_ref = cell.attrib.get("r", "")
+                value_node = cell.find("a:v", ns)
+                value = "" if value_node is None else value_node.text
+                if cell.attrib.get("t") == "s" and value != "":
+                    value = shared_strings[int(value)]
+                values[excel_column_index(cell_ref)] = value
+            if values:
+                width = max(values) + 1
+                parsed_rows.append([values.get(idx, "") for idx in range(width)])
+
+    if not parsed_rows:
+        return pd.DataFrame()
+    header = parsed_rows[0]
+    rows = [row + [""] * (len(header) - len(row)) for row in parsed_rows[1:]]
+    df = pd.DataFrame(rows, columns=header).replace("", np.nan)
+    for col in df.columns:
+        numeric = pd.to_numeric(df[col], errors="coerce")
+        if numeric.notna().sum() > 0:
+            df[col] = numeric
+    return df
+
+
+def load_zenodo_human_state_rows(path: str | Path) -> pd.DataFrame:
+    """Map the provided Zenodo multimodal workbook into CATEM Benchmark v1 rows."""
+    participant_info = read_xlsx_sheet(path, "participant_info")
+    tlx = read_xlsx_sheet(path, "nasa_tlx")
+    sart = read_xlsx_sheet(path, "sart")
+    spam = read_xlsx_sheet(path, "spam")
+    simulator = read_xlsx_sheet(path, "simulator_logs")
+    watch = read_xlsx_sheet(path, "watch_data")
+    ai_questions = read_xlsx_sheet(path, "AI_questions")
+
+    keys = ["Participant", "Group", "Scenario"]
+    merged = tlx.merge(sart, on=keys, how="outer", suffixes=("", "_sart"))
+    merged = merged.merge(spam, on=keys, how="outer", suffixes=("", "_spam"))
+    merged = merged.merge(simulator, on=keys, how="outer", suffixes=("", "_sim"))
+    merged = merged.merge(watch, on=keys, how="outer", suffixes=("", "_watch"))
+    merged = merged.merge(ai_questions, on=keys, how="outer", suffixes=("", "_ai"))
+    merged = merged.merge(participant_info[["Participant", "Group"]].drop_duplicates(), on=["Participant", "Group"], how="left")
+
+    def norm(value: float, series: pd.Series) -> float:
+        numeric = pd.to_numeric(series, errors="coerce")
+        if pd.isna(value) or numeric.dropna().empty:
+            return np.nan
+        return normalize_series_with_bounds(pd.Series([float(value)]), float(numeric.min()), float(numeric.max())).iloc[0]
+
+    def safe_mean(values: list[float]) -> float:
+        valid = [value for value in values if pd.notna(value)]
+        return float(np.mean(valid)) if valid else np.nan
+
+    rows = []
+    for _, row in merged.iterrows():
+        participant = str(row.get("Participant", "zenodo"))
+        scenario = str(row.get("Scenario", "scenario"))
+        accuracy = row.get("Accuracy", np.nan)
+        overall_performance = row.get("Overall Performance", np.nan)
+        sart_index = row.get("SART_index", np.nan)
+        ai_trust = row.get("AI_trust", np.nan)
+        performance_proxy = safe_mean(
+            [
+                norm(accuracy, merged["Accuracy"]),
+                norm(overall_performance, merged["Overall Performance"]),
+            ]
+        )
+        presence_proxy = norm(sart_index, merged["SART_index"]) if pd.notna(sart_index) else np.nan
+        agency_proxy = norm(ai_trust, merged["AI_trust"]) if pd.notna(ai_trust) else presence_proxy
+        rows.append(
+            {
+                "participant_id": participant,
+                "session_id": scenario,
+                "task_id": f"zenodo_{scenario}",
+                "timestamp": pd.Timestamp("2026-01-01"),
+                "heart_rate": row.get("Pulse_rate", np.nan),
+                "gsr": row.get("EDA", np.nan),
+                "eda": row.get("EDA", np.nan),
+                "skin_temp": row.get("Temperature", np.nan),
+                "mental_demand": row.get("Mental_demand", np.nan),
+                "physical_demand": row.get("Physical_demand", np.nan),
+                "temporal_demand": row.get("Temporal_demand", np.nan),
+                "effort": row.get("Effort", np.nan),
+                "frustration": row.get("Frustration", np.nan),
+                "nasa_tlx_total": row.get("TLX_index", np.nan),
+                "task_completion_time": row.get("Response_time", row.get("Reaction_time", np.nan)),
+                "error_rate": 1 - norm(accuracy, merged["Accuracy"]) if pd.notna(accuracy) else np.nan,
+                "success_rate": norm(accuracy, merged["Accuracy"]) if pd.notna(accuracy) else np.nan,
+                "path_efficiency": norm(overall_performance, merged["Overall Performance"]) if pd.notna(overall_performance) else np.nan,
+                "agency_score": agency_proxy,
+                "presence_score": presence_proxy,
+                "overall_telepresence_quality": safe_mean([performance_proxy, presence_proxy, agency_proxy]),
+            }
+        )
+    return pd.DataFrame(rows)
