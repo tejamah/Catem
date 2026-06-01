@@ -540,7 +540,7 @@ def apply_styles() -> None:
         #MainMenu, header, footer, [data-testid="stSidebar"] {display: none;}
         .block-container {
             max-width: 1880px;
-            padding: 3.1rem 0.45rem 0.6rem;
+            padding: 3.1rem 0.45rem 0.15rem;
         }
         html, body, [data-testid="stAppViewContainer"] {
             background: #eef4fb;
@@ -727,8 +727,8 @@ def apply_styles() -> None:
         }
         .inner-nav {
             border-right: 1px solid #cfd9e8;
-            min-height: 570px;
-            padding: 12px 10px;
+            min-height: 0;
+            padding: 12px 10px 10px;
             background: linear-gradient(180deg, #ffffff 0%, #f6f9fd 100%);
         }
         .nav-title {
