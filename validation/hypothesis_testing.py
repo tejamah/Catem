@@ -1,5 +1,5 @@
 import pandas as pd
-from scipy.stats import pearsonr
+from scipy.stats import pearsonr, spearmanr
 
 from validation.common import MODEL_GROUPS, load_master, prepare_xy, write_table
 
@@ -13,13 +13,16 @@ def main() -> None:
         if X.empty:
             continue
         predictor = X.mean(axis=1)
-        statistic, p_value = pearsonr(predictor, target)
+        pearson = pearsonr(predictor, target)
+        spearman = spearmanr(predictor, target)
         rows.append(
             {
                 "hypothesis": f"{model_name} predicts telepresence_quality",
-                "pearson_r": statistic,
-                "p_value": p_value,
-                "supported_at_0_05": p_value < 0.05,
+                "pearson_r": pearson.statistic,
+                "pearson_p_value": pearson.pvalue,
+                "spearman_rho": spearman.statistic,
+                "spearman_p_value": spearman.pvalue,
+                "supported_at_0_05": pearson.pvalue < 0.05,
             }
         )
     path = write_table(pd.DataFrame(rows), "hypothesis_tests.csv")

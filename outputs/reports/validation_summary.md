@@ -25,6 +25,18 @@ Framework -> Data -> Validation -> Results -> Evidence
 
 ## Current Result
 
-The full CATEM model outperforms the single-layer regression baselines in this benchmark build.
+The full CATEM model outperforms the single-layer regression baselines in this proxy benchmark build.
 
-This is the first evidence that CATEM can operate as a predictive validation framework, not only as a dashboard or conceptual taxonomy.
+This is reproducible pipeline evidence that CATEM can operate as a predictive validation framework, not only as a dashboard or conceptual taxonomy.
+
+## Reproducibility
+
+`python scripts/run_validation.py` runs the validation stack twice and compares SHA-256 hashes for the generated tables.
+
+The current run is stable across both passes.
+
+## Ground Truth Caution
+
+`telepresence_quality` is currently a proxy target derived from available outcome-like fields in merged public and user-provided datasets.
+
+It is not yet independent ground truth from a controlled telepresence user study. The current R2 values should therefore be reported as benchmark-prototype validation, not final scientific proof.
