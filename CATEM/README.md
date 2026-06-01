@@ -16,13 +16,24 @@ CATEM/
     catem_v1.csv
   scripts/
     build_catem_v1.py
+    load_physionet.py
+    load_nasatlx.py
+    load_roboturk.py
+    load_ros.py
+    merge_catem.py
     run_validation.py
+    generate_publication_assets.py
+  dashboard/
+  validation/
+  docs/
   outputs/
     catem_v1_long.csv
     catem_v1_validation.csv
     catem_v1_correlations.csv
     catem_v1_regression.csv
     catem_v1_feature_importance.csv
+    catem_v1_model_comparison.csv
+    figures/
 ```
 
 ## Master CSV
@@ -72,3 +83,19 @@ This produces:
 - `outputs/catem_v1_correlations.csv`
 - `outputs/catem_v1_regression.csv`
 - `outputs/catem_v1_feature_importance.csv`
+
+## Publication Figures
+
+```bash
+python CATEM/scripts/generate_publication_assets.py
+```
+
+This produces:
+
+- Figure 1: CATEM architecture
+- Figure 2: data pipeline
+- Figure 3: dataset schema
+- Figure 4: correlation matrix
+- Figure 5: feature importance
+- Figure 6: model comparison
+- Figure 7: dashboard overview

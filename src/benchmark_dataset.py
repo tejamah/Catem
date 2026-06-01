@@ -63,6 +63,15 @@ METRIC_GROUPS = {
 }
 
 
+def ensure_benchmark_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Return a benchmark-shaped frame, filling unavailable modalities with NaN."""
+    benchmark = df.copy()
+    for col in BENCHMARK_COLUMNS:
+        if col not in benchmark.columns:
+            benchmark[col] = np.nan
+    return benchmark[BENCHMARK_COLUMNS]
+
+
 def catem_to_benchmark_schema(catem_df: pd.DataFrame, source_dataset: str = "catem") -> pd.DataFrame:
     """Map CATEM rows into the CATEM Benchmark Dataset v1 schema."""
     df = catem_df.copy()
@@ -105,7 +114,7 @@ def catem_to_benchmark_schema(catem_df: pd.DataFrame, source_dataset: str = "cat
 
 def score_benchmark_layers(benchmark_df: pd.DataFrame) -> pd.DataFrame:
     """Create benchmark layer scores and final CATEM score."""
-    df = benchmark_df.copy()
+    df = ensure_benchmark_columns(benchmark_df)
     df["physiology_score"] = pd.DataFrame(
         {
             "hrv": normalize_series(df["hrv"]),
@@ -150,7 +159,7 @@ def score_benchmark_layers(benchmark_df: pd.DataFrame) -> pd.DataFrame:
         df["overall_telepresence_quality"] = df[
             ["presence_score", "agency_score", "success_rate", "performance_score", "catem_score"]
         ].mean(axis=1)
-    return df[BENCHMARK_COLUMNS]
+    return ensure_benchmark_columns(df)
 
 
 def normalize_to_long_format(benchmark_df: pd.DataFrame, source_dataset: str = "catem_benchmark_v1") -> pd.DataFrame:
@@ -191,11 +200,18 @@ def validate_benchmark(benchmark_df: pd.DataFrame) -> pd.DataFrame:
         group_score = benchmark_df[available].mean(axis=1)
         if group_score.dropna().shape[0] < 2:
             continue
+        valid = group_score.notna() & target.notna()
+        prediction = group_score[valid]
+        actual = target[valid]
+        mae = float((prediction - actual).abs().mean())
+        rmse = float(np.sqrt(((prediction - actual) ** 2).mean()))
         rows.append(
             {
                 "model": model_name,
                 "pearson_correlation": float(group_score.corr(target)),
                 "r2": simple_r2(benchmark_df[available], target),
+                "mae": mae,
+                "rmse": rmse,
                 "feature_count": len(available),
             }
         )
@@ -231,6 +247,8 @@ def validate_benchmark(benchmark_df: pd.DataFrame) -> pd.DataFrame:
                     "model": f"feature_importance::{feature}",
                     "pearson_correlation": np.nan,
                     "r2": float(importance),
+                    "mae": np.nan,
+                    "rmse": np.nan,
                     "feature_count": 1,
                 }
             )
@@ -337,35 +355,50 @@ def load_robot_anomaly_rows(path: str | Path) -> pd.DataFrame:
     """Map robot anomaly telemetry into CATEM Benchmark v1 rows."""
     raw = pd.read_csv(path)
     rows = []
-    grouped = raw.groupby(["robot_namespace", "environment"], dropna=False)
-    for (robot, environment), group in grouped:
-        anomaly_rate = float(group["anomaly"].mean())
-        scan_quality = float(group["scan_valid_pct"].mean())
-        message_rate = float(group["message_rate_hz"].mean())
-        latency = float(group["network_latency_ms"].mean())
-        cpu_usage = float(group["cpu_usage"].mean())
-        battery_pct = float(group["battery_pct"].mean())
+    gyro_abs = raw["imu_gyro_z"].abs()
+    latency_series = pd.to_numeric(raw.get("network_latency_ms", pd.Series(np.nan, index=raw.index)), errors="coerce")
+    message_rate_series = pd.to_numeric(raw.get("message_rate_hz", pd.Series(np.nan, index=raw.index)), errors="coerce")
+    grouped_latency_std = raw.groupby(["robot_namespace", "environment"], dropna=False)["network_latency_ms"].transform("std")
+    for _, row in raw.iterrows():
+        anomaly_rate = float(row.get("anomaly", 0))
+        scan_quality = float(row.get("scan_valid_pct", np.nan))
+        message_rate = float(row.get("message_rate_hz", np.nan))
+        latency = float(row.get("network_latency_ms", np.nan))
+        cpu_usage = float(row.get("cpu_usage", np.nan))
+        battery_pct = float(row.get("battery_pct", np.nan))
         motion_stability = 1 - normalize_series_with_bounds(
-            pd.Series([group["imu_gyro_z"].abs().mean()]),
-            float(raw["imu_gyro_z"].abs().min()),
-            float(raw["imu_gyro_z"].abs().max()),
+            pd.Series([abs(float(row.get("imu_gyro_z", np.nan)))]),
+            float(gyro_abs.min()),
+            float(gyro_abs.max()),
+        ).iloc[0]
+        latency_quality = 1 - normalize_series_with_bounds(
+            pd.Series([latency]),
+            float(latency_series.min()),
+            float(latency_series.max()),
+        ).iloc[0]
+        message_quality = normalize_series_with_bounds(
+            pd.Series([message_rate]),
+            float(message_rate_series.min()),
+            float(message_rate_series.max()),
         ).iloc[0]
         success_rate = float(np.clip(1 - anomaly_rate, 0, 1))
         rows.append(
             {
-                "participant_id": str(robot),
-                "session_id": str(environment),
-                "task_id": f"robot_anomaly_{environment}",
-                "timestamp": pd.to_datetime(group["timestamp"].min(), errors="coerce"),
+                "participant_id": str(row.get("robot_namespace", "robot")),
+                "session_id": str(row.get("environment", "environment")),
+                "task_id": f"robot_anomaly_{row.get('environment', 'environment')}",
+                "timestamp": pd.to_datetime(row.get("timestamp"), errors="coerce"),
                 "latency_ms": latency,
                 "tracking_error": float(1 - scan_quality),
-                "packet_loss": float(1 - normalize_series_with_bounds(pd.Series([message_rate]), 1, 75).iloc[0]),
-                "jitter": float(group["network_latency_ms"].std()),
+                "packet_loss": float(1 - message_quality),
+                "jitter": float(grouped_latency_std.loc[row.name]) if pd.notna(grouped_latency_std.loc[row.name]) else np.nan,
                 "fps": message_rate,
                 "error_rate": anomaly_rate,
                 "success_rate": success_rate,
                 "path_efficiency": motion_stability,
-                "overall_telepresence_quality": float(np.mean([success_rate, scan_quality, motion_stability, battery_pct / 100])),
+                "overall_telepresence_quality": float(
+                    np.nanmean([success_rate, scan_quality, motion_stability, battery_pct / 100, latency_quality])
+                ),
                 "cpu_usage": cpu_usage,
             }
         )
@@ -395,10 +428,7 @@ def build_benchmark_from_user_files(
         source_frames.append(load_robot_anomaly_rows(robot_anomaly_path))
 
     raw_benchmark = pd.concat(source_frames, ignore_index=True)
-    for col in BENCHMARK_COLUMNS:
-        if col not in raw_benchmark.columns:
-            raw_benchmark[col] = np.nan
-    benchmark = score_benchmark_layers(raw_benchmark[BENCHMARK_COLUMNS])
+    benchmark = score_benchmark_layers(raw_benchmark)
     long_df = normalize_to_long_format(benchmark, source_dataset="catem_user_benchmark")
     validation_df = validate_benchmark(benchmark)
 
