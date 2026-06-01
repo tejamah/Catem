@@ -51,6 +51,22 @@ PhysioNet physiology + ROS telemetry + NASA-TLX workload + outcome labels
 -> scoring, validation, explainability, and recommendations
 ```
 
+## CATEM Benchmark Dataset v1
+
+The repository now includes a benchmark builder:
+
+```bash
+python scripts/build_catem_benchmark.py
+```
+
+It creates:
+
+- `data/processed/catem_benchmark_v1.csv`
+- `data/processed/catem_benchmark_v1_long.csv`
+- `outputs/catem_benchmark_validation.csv`
+
+See `docs/catem_benchmark_v1.md` for the full five-stage benchmark pipeline.
+
 ## Decision Support
 
 CATEM is designed to convert analytics into action:
@@ -73,6 +89,7 @@ CATEM is designed to convert analytics into action:
   - `docs/platform_roadmap.md` - path from framework to decision-support platform
   - `docs/external_dataset_integration.md` - PhysioNet, OpenNeuro, and DEAP integration guide
   - `docs/catem_dataset_strategy.md` - strategy for combining partial datasets into one CATEM dataset
+  - `docs/catem_benchmark_v1.md` - unified benchmark dataset schema and build stages
 
 ## Getting Started
 
