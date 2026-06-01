@@ -31,6 +31,16 @@ CATEM =
 
 The dashboard also includes data-driven validation tools: correlation analysis, feature importance, explainability for low-scoring sessions, and recommendation generation.
 
+## External Dataset Integration
+
+CATEM includes local adapters for public physiology and neuroscience datasets:
+
+- PhysioNet: ECG, heart rate, HRV/IBI, EDA/GSR, stress, and wearable sensor exports
+- OpenNeuro: BIDS EEG/behavioral experiment folders with `*_events.tsv` files
+- DEAP: preprocessed `.dat` files with EEG, peripheral physiology, and affective labels
+
+Place downloaded datasets under `data/external/` and use `src.dataset_integrations` to map them into the CATEM schema. See `docs/external_dataset_integration.md` for examples.
+
 ## Decision Support
 
 CATEM is designed to convert analytics into action:
@@ -51,6 +61,7 @@ CATEM is designed to convert analytics into action:
 - `outputs/` - generated figures, reports, and results
 - `docs/` - CATEM framework and validation documentation
   - `docs/platform_roadmap.md` - path from framework to decision-support platform
+  - `docs/external_dataset_integration.md` - PhysioNet, OpenNeuro, and DEAP integration guide
 
 ## Getting Started
 

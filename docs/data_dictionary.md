@@ -31,3 +31,14 @@ This file documents the synthetic CATEM dataset columns.
 - `missing_data_rate`: Missing data rate
 - `timestamp_accuracy`: Timestamp accuracy score
 - `sensor_sync_error`: Sensor synchronization error
+- `overall_telepresence_quality`: Optional ground-truth or proxy outcome variable for validation. This can come from user satisfaction, immersion, task success, VEQ-style ratings, or dataset-specific proxy labels.
+
+## External Dataset Integration
+
+External sources can be mapped into this schema through `src/dataset_integrations.py`.
+
+- PhysioNet: maps HR, HRV/IBI, EDA/GSR, stress/workload, and missingness into physiology, workload, and data-quality fields.
+- OpenNeuro: maps BIDS `*_events.tsv` duration, accuracy, difficulty/load, and interaction counts into behavior and workload fields.
+- DEAP: maps valence, arousal, dominance, liking, EEG variance, and peripheral signal variance into presence, workload, agency, physiology, and an optional quality proxy.
+
+External datasets may only cover part of CATEM. Missing layers are filled with neutral defaults until richer telepresence-specific data is available.
