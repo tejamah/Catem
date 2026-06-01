@@ -405,6 +405,119 @@ def load_robot_anomaly_rows(path: str | Path) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def load_apple_health_rows(path: str | Path) -> pd.DataFrame:
+    """Map Apple Health daily activity and sleep exports into CATEM Benchmark v1 rows."""
+    wanted_types = {
+        "HKQuantityTypeIdentifierStepCount": "step_count",
+        "HKQuantityTypeIdentifierActiveEnergyBurned": "active_energy",
+        "HKQuantityTypeIdentifierBasalEnergyBurned": "basal_energy",
+        "HKQuantityTypeIdentifierDistanceWalkingRunning": "distance",
+        "HKQuantityTypeIdentifierWalkingSpeed": "walking_speed",
+        "HKQuantityTypeIdentifierWalkingStepLength": "walking_step_length",
+        "HKQuantityTypeIdentifierWalkingDoubleSupportPercentage": "double_support",
+        "HKQuantityTypeIdentifierWalkingAsymmetryPercentage": "asymmetry",
+        "HKQuantityTypeIdentifierAppleWalkingSteadiness": "walking_steadiness",
+    }
+    sum_metrics = {"step_count", "active_energy", "basal_energy", "distance"}
+    daily: dict[str, dict[str, list[float]]] = {}
+
+    for _event, element in ET.iterparse(path, events=("end",)):
+        if element.tag != "Record":
+            element.clear()
+            continue
+        record_type = element.attrib.get("type", "")
+        start_value = element.attrib.get("startDate", "")
+        if len(start_value) < 10:
+            element.clear()
+            continue
+        day = start_value[:10]
+
+        if record_type in wanted_types:
+            value = pd.to_numeric(element.attrib.get("value"), errors="coerce")
+            if pd.notna(value):
+                daily.setdefault(day, {}).setdefault(wanted_types[record_type], []).append(float(value))
+        elif record_type == "HKCategoryTypeIdentifierSleepAnalysis":
+            value = element.attrib.get("value", "")
+            if "Asleep" in value:
+                start_date = pd.to_datetime(start_value, errors="coerce")
+                end_date = pd.to_datetime(element.attrib.get("endDate"), errors="coerce")
+                if pd.notna(start_date) and pd.notna(end_date):
+                    hours = max((end_date - start_date).total_seconds() / 3600, 0)
+                    daily.setdefault(day, {}).setdefault("sleep_hours", []).append(float(hours))
+        element.clear()
+
+    rows = []
+    for day, metrics in sorted(daily.items()):
+        aggregated = {}
+        for metric, values in metrics.items():
+            if not values:
+                continue
+            aggregated[metric] = float(np.nansum(values) if metric in sum_metrics or metric == "sleep_hours" else np.nanmean(values))
+        if not aggregated:
+            continue
+        rows.append({"timestamp": pd.Timestamp(day), **aggregated})
+
+    if not rows:
+        return pd.DataFrame()
+
+    raw = pd.DataFrame(rows)
+    steps_quality = normalize_series_with_bounds(raw.get("step_count", pd.Series(np.nan, index=raw.index)), 0, 12000)
+    energy_quality = normalize_series_with_bounds(raw.get("active_energy", pd.Series(np.nan, index=raw.index)), 0, 900)
+    speed_quality = normalize_series_with_bounds(raw.get("walking_speed", pd.Series(np.nan, index=raw.index)), 0.5, 2.0)
+    steadiness_quality = normalize_series_with_bounds(raw.get("walking_steadiness", pd.Series(np.nan, index=raw.index)), 0, 100)
+    sleep_quality = (raw.get("sleep_hours", pd.Series(np.nan, index=raw.index)) / 8).clip(0, 1)
+    asymmetry_risk = normalize_series_with_bounds(raw.get("asymmetry", pd.Series(np.nan, index=raw.index)), 0, 100)
+    double_support_risk = normalize_series_with_bounds(raw.get("double_support", pd.Series(np.nan, index=raw.index)), 0, 100)
+    physiology_proxy = pd.DataFrame(
+        {
+            "sleep": sleep_quality,
+            "activity": steps_quality,
+            "energy": energy_quality,
+            "steadiness": steadiness_quality,
+        }
+    ).mean(axis=1).fillna(0.5)
+    performance_proxy = pd.DataFrame(
+        {
+            "speed": speed_quality,
+            "steadiness": steadiness_quality,
+            "low_asymmetry": 1 - asymmetry_risk,
+        }
+    ).mean(axis=1).fillna(0.5)
+    workload_proxy = pd.DataFrame(
+        {
+            "asymmetry": asymmetry_risk,
+            "double_support": double_support_risk,
+            "low_recovery": 1 - sleep_quality,
+        }
+    ).mean(axis=1).fillna(0.5)
+
+    benchmark = pd.DataFrame(
+        {
+            "participant_id": "apple_health_user",
+            "session_id": "apple_health_daily",
+            "task_id": "apple_health_wearable_activity",
+            "timestamp": raw["timestamp"],
+            "heart_rate": 55 + physiology_proxy * 60,
+            "hrv": 20 + sleep_quality.fillna(0.5) * 70,
+            "gsr": workload_proxy,
+            "eda": workload_proxy,
+            "task_completion_time": (1 - speed_quality.fillna(0.5)) * 100,
+            "error_rate": (1 - performance_proxy).clip(0, 1),
+            "success_rate": performance_proxy.clip(0, 1),
+            "path_efficiency": performance_proxy.clip(0, 1),
+            "overall_telepresence_quality": pd.DataFrame(
+                {
+                    "physiology": physiology_proxy,
+                    "performance": performance_proxy,
+                    "recovery": sleep_quality,
+                    "low_workload": 1 - workload_proxy,
+                }
+            ).mean(axis=1).clip(0, 1),
+        }
+    )
+    return benchmark
+
+
 def build_benchmark_from_user_files(
     demographics_path: str | Path,
     tlx_assistant_path: str | Path,
@@ -412,6 +525,7 @@ def build_benchmark_from_user_files(
     roboturk_results_dir: str | Path,
     zenodo_workbook_path: str | Path | None = None,
     robot_anomaly_path: str | Path | None = None,
+    apple_health_export_path: str | Path | None = None,
     output_path: str | Path = "data/processed/catem_benchmark_user_data.csv",
     long_output_path: str | Path = "data/processed/catem_benchmark_user_data_long.csv",
     validation_output_path: str | Path = "outputs/catem_benchmark_user_validation.csv",
@@ -426,6 +540,8 @@ def build_benchmark_from_user_files(
         source_frames.append(load_zenodo_human_state_rows(zenodo_workbook_path))
     if robot_anomaly_path is not None and Path(robot_anomaly_path).exists():
         source_frames.append(load_robot_anomaly_rows(robot_anomaly_path))
+    if apple_health_export_path is not None and Path(apple_health_export_path).exists():
+        source_frames.append(load_apple_health_rows(apple_health_export_path))
 
     raw_benchmark = pd.concat(source_frames, ignore_index=True)
     benchmark = score_benchmark_layers(raw_benchmark)

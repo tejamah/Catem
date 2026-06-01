@@ -19,6 +19,7 @@ def main() -> None:
         roboturk_results_dir=ROBOTURK_RESULTS,
         zenodo_workbook_path=DOWNLOADS / "dataset-main" / "concatenated_data_zenodo.xlsx",
         robot_anomaly_path=DOWNLOADS / "robot_anomaly_full.csv",
+        apple_health_export_path=DOWNLOADS / "apple_health_export" / "export.xml",
         output_path="CATEM/benchmark/catem_v1.csv",
         long_output_path="CATEM/outputs/catem_v1_long.csv",
         validation_output_path="CATEM/outputs/catem_v1_validation.csv",

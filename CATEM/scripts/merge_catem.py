@@ -16,6 +16,7 @@ def main() -> None:
         ROOT_DIR / "CATEM" / "outputs" / "nasa_tlx_catem.csv",
         ROOT_DIR / "CATEM" / "outputs" / "roboturk_benchmark.csv",
         ROOT_DIR / "CATEM" / "outputs" / "ros_catem.csv",
+        ROOT_DIR / "CATEM" / "outputs" / "apple_health_benchmark.csv",
     ]
     frames = []
     for path in inputs:

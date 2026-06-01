@@ -20,6 +20,7 @@ CATEM/
     load_nasatlx.py
     load_roboturk.py
     load_ros.py
+    load_apple_health.py
     merge_catem.py
     run_validation.py
     generate_publication_assets.py
@@ -70,7 +71,7 @@ Build CATEM Dataset v1 with 1000+ records, then run:
 - random forest
 - CATEM validation
 
-Current local build uses the downloaded NASA-TLX, RoboTurk, Zenodo workbook, and robot anomaly files available in `Downloads`.
+Current local build uses the downloaded NASA-TLX, RoboTurk, Zenodo workbook, robot anomaly file, and Apple Health export available in `Downloads`.
 
 ## Validation Command
 

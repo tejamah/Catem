@@ -1,6 +1,6 @@
 hypothesis,pearson_r,p_value,supported_at_0_05
-presence_only predicts telepresence_quality,0.1324475437859406,2.523756254928235e-15,True
-workload_only predicts telepresence_quality,-0.12043658822648409,6.50883428668674e-13,True
-system_only predicts telepresence_quality,-0.14957923850882673,3.656601325780638e-19,True
-performance_only predicts telepresence_quality,-0.1146081192379019,7.97038435017781e-12,True
-catem_full_model predicts telepresence_quality,-0.1769674753449872,2.6972665463770817e-26,True
+presence_only predicts telepresence_quality,0.12984797873109294,1.812314579559868e-18,True
+workload_only predicts telepresence_quality,-0.11798137978459283,1.7047027463219725e-15,True
+system_only predicts telepresence_quality,-0.14625284700921284,4.713922739527687e-23,True
+performance_only predicts telepresence_quality,-0.5632960183248952,0.0,True
+catem_full_model predicts telepresence_quality,-0.5745035127397902,0.0,True

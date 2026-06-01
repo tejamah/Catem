@@ -12,6 +12,7 @@
 | `gsr` | Physiology | Galvanic skin response |
 | `eda` | Physiology | Electrodermal activity |
 | `skin_temp` | Physiology | Skin or wearable temperature |
+| Apple Health activity proxy | Physiology | Daily proxy derived from steps, active energy, walking speed, walking steadiness, asymmetry, double-support percentage, and sleep records |
 | `mental_demand` | Workload | NASA-TLX mental demand |
 | `physical_demand` | Workload | NASA-TLX physical demand |
 | `temporal_demand` | Workload | NASA-TLX temporal demand |
@@ -36,4 +37,3 @@
 | `system_score` | CATEM Layer Score | Normalized system stability layer |
 | `performance_score` | CATEM Layer Score | Normalized task performance layer |
 | `catem_score` | CATEM Score | Unified CATEM evaluation score |
-
