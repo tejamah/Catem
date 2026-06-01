@@ -1,0 +1,2 @@
+participant_id,session_id,timestamp,ownership_score,agency_score,self_location_score,presence_score,social_presence_score,task_completion_time,error_rate,movement_smoothness,interaction_frequency,heart_rate,hrv,gsr,eye_fixation,blink_rate,nasa_tlx_score,mental_demand,effort,frustration,latency_ms,fps,jitter,packet_loss,tracking_loss,missing_data_rate,timestamp_accuracy,sensor_sync_error
+P01,S01,2026-05-31 10:00:00,0.72,0.65,0.70,0.80,0.75,32.0,0.04,0.88,22,78,52,3.4,0.60,12,45,50,55,40,120,55,8,0.01,0.02,0.98,0.95,0.05
