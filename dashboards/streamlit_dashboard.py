@@ -540,27 +540,36 @@ def control_panel(df: pd.DataFrame) -> tuple[str, pd.DataFrame]:
         "Correlation Analysis",
         "Feature Importance",
         "Decision Support",
-        "About CATEM",
     ]
-    st.markdown("<div class='nav-title'>CATEM Dashboard</div>", unsafe_allow_html=True)
-    page = st.radio("Page", pages, label_visibility="collapsed", key="catem_page")
+    with st.sidebar:
+        st.title("CATEM Dashboard")
+        page = st.radio("Navigation", pages, key="catem_page")
 
-    st.divider()
-    st.markdown("<div class='filter-title'>Filters</div>", unsafe_allow_html=True)
-    participants = ["All"] + sorted(df["participant_id"].astype(str).unique().tolist())
-    sessions = ["All"] + sorted(df["session_id"].astype(str).unique().tolist())
-    participant = st.selectbox("Participant", participants, key="participant_filter")
-    session = st.selectbox("Session", sessions, key="session_filter")
+        st.divider()
+        st.subheader("Participant Drill-Down")
+        participants = ["All"] + sorted(df["participant_id"].astype(str).unique().tolist())
+        participant = st.selectbox("Select Participant", participants, key="participant_filter")
 
-    filtered = df.copy()
-    if participant != "All":
-        filtered = filtered[filtered["participant_id"].astype(str) == participant]
-    if session != "All":
-        filtered = filtered[filtered["session_id"].astype(str) == session]
-    st.button("Apply Filters", type="primary", use_container_width=True)
-    if filtered.empty:
-        st.warning("No rows match the selected filters. Showing all data instead.")
+        session_source = df if participant == "All" else df[df["participant_id"].astype(str) == participant]
+        sessions = ["All"] + sorted(session_source["session_id"].astype(str).unique().tolist())
+        session = st.selectbox("Select Session", sessions, key="session_filter")
+
         filtered = df.copy()
+        if participant != "All":
+            filtered = filtered[filtered["participant_id"].astype(str) == participant]
+        if session != "All":
+            filtered = filtered[filtered["session_id"].astype(str) == session]
+        if filtered.empty:
+            st.warning("No rows match the selected filters. Showing all data instead.")
+            filtered = df.copy()
+
+        st.divider()
+        st.subheader("Selected Result")
+        st.metric("CATEM Score", f"{score_value(filtered, 'catem_score'):.1f}/100")
+        st.metric("Embodiment", f"{score_value(filtered, 'embodiment_score'):.1f}/100")
+        st.metric("Presence", f"{score_value(filtered, 'presence_score'):.1f}/100")
+        st.metric("Workload Risk", f"{score_value(filtered, 'workload_risk_score'):.1f}/100")
+        st.metric("System", f"{score_value(filtered, 'system_stability_score'):.1f}/100")
     return page, filtered
 
 
@@ -680,11 +689,18 @@ def apply_styles() -> None:
             --text: #081537;
             --blue: #1d6ee8;
         }
-        #MainMenu, footer, [data-testid="stSidebar"] {display: none;}
+        #MainMenu, footer {display: none;}
         header {visibility: hidden; pointer-events: none;}
         .block-container {
             max-width: 1880px;
-            padding: 3.1rem 0.45rem 0.15rem;
+            padding: 3.1rem 0.8rem 0.15rem;
+        }
+        [data-testid="stSidebar"] {
+            background: #f7fbff;
+            border-right: 1px solid #c7d5e7;
+        }
+        [data-testid="stSidebar"] * {
+            color: var(--text);
         }
         html, body, [data-testid="stAppViewContainer"] {
             background: #eef4fb;
@@ -1017,6 +1033,8 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
+    page, filtered_df = control_panel(df)
+
     left, center, right = st.columns([0.245, 0.56, 0.225], gap="small")
 
     with left:
@@ -1044,20 +1062,16 @@ def main() -> None:
 
     with center:
         st.markdown(section_header('CATEM DASHBOARD <span style="font-size:11px;">(Streamlit)</span>'), unsafe_allow_html=True)
-        nav_col, main_col = st.columns([0.19, 0.81], gap="small")
-        with nav_col:
-            page, filtered_df = control_panel(df)
-        with main_col:
-            metrics = [
-                ("CATEM Score<br>(Weighted)", score_value(filtered_df, "catem_score"), "/100", "#1d6ee8"),
-                ("Embodiment Score", score_value(filtered_df, "embodiment_score"), "/100", "#1d6ee8"),
-                ("Presence Score", score_value(filtered_df, "presence_score"), "/100", "#1d6ee8"),
-                ("Behavior Score", score_value(filtered_df, "behavior_score"), "/100", "#1d6ee8"),
-                ("Workload Risk<br>(NASA-TLX)", score_value(filtered_df, "workload_risk_score"), "/100", "#ff6b1a"),
-                ("System Score", score_value(filtered_df, "system_stability_score"), "/100", "#2b8c9f"),
-            ]
-            st.markdown("<div class='metric-grid'>" + "".join(metric_card(*item) for item in metrics) + "</div>", unsafe_allow_html=True)
-            render_page(page, filtered_df)
+        metrics = [
+            ("CATEM Score<br>(Weighted)", score_value(filtered_df, "catem_score"), "/100", "#1d6ee8"),
+            ("Embodiment Score", score_value(filtered_df, "embodiment_score"), "/100", "#1d6ee8"),
+            ("Presence Score", score_value(filtered_df, "presence_score"), "/100", "#1d6ee8"),
+            ("Behavior Score", score_value(filtered_df, "behavior_score"), "/100", "#1d6ee8"),
+            ("Workload Risk<br>(NASA-TLX)", score_value(filtered_df, "workload_risk_score"), "/100", "#ff6b1a"),
+            ("System Score", score_value(filtered_df, "system_stability_score"), "/100", "#2b8c9f"),
+        ]
+        st.markdown("<div class='metric-grid'>" + "".join(metric_card(*item) for item in metrics) + "</div>", unsafe_allow_html=True)
+        render_page(page, filtered_df)
 
     with right:
         st.markdown(section_header("VALIDATION & ANALYSIS"), unsafe_allow_html=True)
