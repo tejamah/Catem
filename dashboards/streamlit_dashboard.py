@@ -698,11 +698,22 @@ def apply_styles() -> None:
             padding: 3.1rem 0.8rem 0.15rem;
         }
         [data-testid="stSidebar"] {
-            background: #f7fbff;
-            border-right: 1px solid #c7d5e7;
+            background: linear-gradient(180deg, #f8fbff 0%, #edf5ff 100%);
+            border-right: 1px solid #bfd0e6;
         }
         [data-testid="stSidebar"] * {
             color: var(--text);
+        }
+        [data-testid="stSidebar"] h1 {
+            color: #05245c;
+            font-size: 24px;
+            font-weight: 900;
+            margin-bottom: 6px;
+        }
+        [data-testid="stSidebar"] h2,
+        [data-testid="stSidebar"] h3 {
+            color: #07316d;
+            font-weight: 900;
         }
         html, body, [data-testid="stAppViewContainer"] {
             background: #eef4fb;
@@ -899,7 +910,7 @@ def apply_styles() -> None:
             margin-bottom: 10px;
         }
         .stRadio > label, .stSelectbox > label {
-            font-size: 11px;
+            font-size: 12px;
             font-weight: 900;
             color: var(--text);
         }
@@ -910,6 +921,62 @@ def apply_styles() -> None:
         }
         div[role="radiogroup"] label:hover {
             background: #eef5ff;
+        }
+        [data-testid="stSidebar"] div[role="radiogroup"] label {
+            border: 1px solid transparent;
+            color: #05245c;
+            font-weight: 750;
+        }
+        [data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) {
+            background: #e4efff;
+            border-color: #8db5f4;
+            box-shadow: inset 3px 0 0 #1d6ee8;
+        }
+        [data-testid="stSidebar"] [data-testid="stSelectbox"] label {
+            color: #05245c;
+            font-size: 13px;
+            font-weight: 850;
+        }
+        [data-testid="stSidebar"] [data-baseweb="select"] > div {
+            background: #ffffff;
+            border: 1px solid #8fb1dc;
+            border-radius: 8px;
+            min-height: 44px;
+            box-shadow: 0 1px 2px rgba(7, 28, 73, 0.08);
+        }
+        [data-testid="stSidebar"] [data-baseweb="select"] > div:hover {
+            border-color: #1d6ee8;
+            box-shadow: 0 0 0 3px rgba(29, 110, 232, 0.12);
+        }
+        [data-testid="stSidebar"] [data-baseweb="select"] span,
+        [data-testid="stSidebar"] [data-baseweb="select"] div {
+            color: #05245c;
+            font-weight: 700;
+        }
+        [data-baseweb="popover"] ul,
+        [data-baseweb="popover"] li,
+        [data-baseweb="popover"] div {
+            background: #ffffff;
+            color: #05245c;
+        }
+        [data-baseweb="popover"] li:hover {
+            background: #eaf2ff;
+        }
+        [data-testid="stSidebar"] [data-testid="stMetric"] {
+            background: #ffffff;
+            border: 1px solid #d2ddea;
+            border-radius: 8px;
+            padding: 8px 10px;
+            margin-bottom: 8px;
+            box-shadow: 0 1px 2px rgba(7, 28, 73, 0.06);
+        }
+        [data-testid="stSidebar"] [data-testid="stMetricLabel"] {
+            color: #426286;
+            font-weight: 800;
+        }
+        [data-testid="stSidebar"] [data-testid="stMetricValue"] {
+            color: #071c49;
+            font-weight: 900;
         }
         .nav-item {
             display: flex;
