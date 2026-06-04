@@ -679,6 +679,73 @@ def render_page(page: str, df: pd.DataFrame) -> None:
     )
 
 
+def render_framework_panel() -> None:
+    st.markdown(section_header("CATEM FRAMEWORK"), unsafe_allow_html=True)
+    st.markdown(
+        "<p class='framework-intro'>CATEM evaluates telepresence quality by integrating multiple cross-layer factors into a single adaptive score.</p>",
+        unsafe_allow_html=True,
+    )
+    for meta in LAYER_META:
+        st.markdown(framework_layer(meta), unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="formula">
+            <div class="formula-title">LITERATURE-WEIGHTED CATEM SCORE</div>
+            <div class="formula-body">
+                0.25 Embodiment + 0.20 Presence + 0.20 Behavior<br>
+                + 0.10 Physiology + 0.15 System + 0.10 Data Quality<br>
+                <b style="color:#001b61;">- 0.10 Workload Risk</b>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_score_cards(df: pd.DataFrame) -> None:
+    metrics = [
+        ("CATEM Score<br>(Weighted)", score_value(df, "catem_score"), "/100", "#1d6ee8"),
+        ("Embodiment Score", score_value(df, "embodiment_score"), "/100", "#1d6ee8"),
+        ("Presence Score", score_value(df, "presence_score"), "/100", "#1d6ee8"),
+        ("Behavior Score", score_value(df, "behavior_score"), "/100", "#1d6ee8"),
+        ("Workload Risk<br>(NASA-TLX)", score_value(df, "workload_risk_score"), "/100", "#ff6b1a"),
+        ("System Score", score_value(df, "system_stability_score"), "/100", "#2b8c9f"),
+    ]
+    st.markdown("<div class='metric-grid'>" + "".join(metric_card(*item) for item in metrics) + "</div>", unsafe_allow_html=True)
+
+
+def render_validation_panel(filtered_df: pd.DataFrame, reference_df: pd.DataFrame) -> None:
+    st.markdown(section_header("VALIDATION & ANALYSIS"), unsafe_allow_html=True)
+    method_col, comparison_col = st.columns([0.48, 0.52], gap="medium")
+    with method_col:
+        st.markdown(
+            """
+            <div class="info-card">
+                <h4>Objective</h4>
+                Use CATEM as a decision-support layer for diagnosing telepresence quality and prioritizing improvements.
+                <hr>
+                <h4>Validation Methods</h4>
+                <ul>
+                    <li>Literature-Based Weighting</li>
+                    <li>Correlation Analysis</li>
+                    <li>Multiple Linear Regression</li>
+                    <li>Random Forest Regression</li>
+                    <li>Feature Importance</li>
+                    <li>Prediction Accuracy (R2, MAE, RMSE)</li>
+                    <li>Root-Cause Recommendations</li>
+                </ul>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.markdown(explainability_card(filtered_df, reference_df), unsafe_allow_html=True)
+    with comparison_col:
+        st.markdown("<div class='info-card'><h4>Model Comparison</h4></div>", unsafe_allow_html=True)
+        st.plotly_chart(comparison_chart(), use_container_width=True, config={"displayModeBar": False})
+        st.markdown("<div class='info-card'><h4>Top Predictors</h4></div>", unsafe_allow_html=True)
+        st.plotly_chart(feature_importance_chart(filtered_df), use_container_width=True, config={"displayModeBar": False})
+
+
 def apply_styles() -> None:
     st.markdown(
         """
@@ -694,8 +761,8 @@ def apply_styles() -> None:
         #MainMenu, footer {display: none;}
         header {visibility: hidden; pointer-events: none;}
         .block-container {
-            max-width: 1880px;
-            padding: 3.1rem 0.8rem 0.15rem;
+            max-width: 1560px;
+            padding: 1.25rem 1rem 1rem;
         }
         [data-testid="stSidebar"] {
             background: linear-gradient(180deg, #f8fbff 0%, #edf5ff 100%);
@@ -730,12 +797,12 @@ def apply_styles() -> None:
             border: 1px solid #0d3572;
             border-radius: 8px;
             text-align: center;
-            padding: 7px 18px 8px;
+            padding: 18px 22px 14px;
             box-shadow: inset 0 0 26px rgba(255,255,255,0.08);
         }
         .hero h1 {
             margin: 0;
-            font-size: 36px;
+            font-size: 32px;
             line-height: 1.05;
             font-weight: 900;
             letter-spacing: 0;
@@ -748,12 +815,13 @@ def apply_styles() -> None:
             margin-top: 2px;
         }
         .hero-strip {
-            margin: 7px auto 0;
+            margin: 13px auto 0;
             display: flex;
             justify-content: center;
-            gap: 52px;
+            gap: 26px;
+            flex-wrap: wrap;
             font-weight: 700;
-            font-size: 13px;
+            font-size: 12px;
         }
         .hero-chip {
             display: flex;
@@ -799,8 +867,8 @@ def apply_styles() -> None:
         }
         .layer-row {
             display: grid;
-            grid-template-columns: 66px 1fr 116px;
-            min-height: 70px;
+            grid-template-columns: 58px 1fr;
+            min-height: 68px;
             border: 1px solid;
             border-radius: 8px;
             margin-bottom: 7px;
@@ -817,7 +885,6 @@ def apply_styles() -> None:
         }
         .layer-main {
             padding: 8px 7px 7px 12px;
-            border-right: 1px solid #d6dfeb;
         }
         .layer-title {
             font-size: 14px;
@@ -832,9 +899,9 @@ def apply_styles() -> None:
             color: #000;
         }
         .layer-desc {
-            display: flex;
-            align-items: center;
-            padding: 7px 10px;
+            grid-column: 1 / -1;
+            border-top: 1px solid #d6dfeb;
+            padding: 7px 12px;
             font-size: 10.5px;
             line-height: 1.25;
             color: #000;
@@ -861,7 +928,7 @@ def apply_styles() -> None:
             display: grid;
             grid-template-columns: repeat(6, minmax(0, 1fr));
             gap: 7px;
-            margin-bottom: 8px;
+            margin: 10px 0 12px;
         }
         .metric-card {
             min-height: 102px;
@@ -1044,6 +1111,7 @@ def apply_styles() -> None:
             background: white;
             padding: 3px 3px 0;
             overflow: hidden;
+            margin-bottom: 10px;
         }
         .info-card {
             border: 1px solid #c9d4e5;
@@ -1103,98 +1171,20 @@ def main() -> None:
     )
 
     page, filtered_df = control_panel(df)
+    st.markdown(section_header(f"CATEM DASHBOARD <span style='font-size:11px;'>({page})</span>"), unsafe_allow_html=True)
+    render_score_cards(filtered_df)
 
-    left, center, right = st.columns([0.245, 0.56, 0.225], gap="small")
-
-    with left:
-        st.markdown(section_header("CATEM FRAMEWORK"), unsafe_allow_html=True)
-        st.markdown(
-            "<p class='framework-intro'>CATEM evaluates telepresence quality<br>by integrating multiple cross-layer factors<br>into a single adaptive score.</p>",
-            unsafe_allow_html=True,
-        )
-        for meta in LAYER_META:
-            st.markdown(framework_layer(meta), unsafe_allow_html=True)
-        st.markdown(
-            """
-            <div class="formula">
-                <div class="formula-title">LITERATURE-WEIGHTED CATEM SCORE</div>
-                <div class="formula-body">
-                    0.25 Embodiment + 0.20 Presence + 0.20 Behavior<br>
-                    + 0.10 Physiology + 0.15 System + 0.10 Data Quality<br>
-                    <b style="color:#001b61;">- 0.10 Workload Risk</b>
-                </div>
-            </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    with center:
-        st.markdown(section_header('CATEM DASHBOARD <span style="font-size:11px;">(Streamlit)</span>'), unsafe_allow_html=True)
-        metrics = [
-            ("CATEM Score<br>(Weighted)", score_value(filtered_df, "catem_score"), "/100", "#1d6ee8"),
-            ("Embodiment Score", score_value(filtered_df, "embodiment_score"), "/100", "#1d6ee8"),
-            ("Presence Score", score_value(filtered_df, "presence_score"), "/100", "#1d6ee8"),
-            ("Behavior Score", score_value(filtered_df, "behavior_score"), "/100", "#1d6ee8"),
-            ("Workload Risk<br>(NASA-TLX)", score_value(filtered_df, "workload_risk_score"), "/100", "#ff6b1a"),
-            ("System Score", score_value(filtered_df, "system_stability_score"), "/100", "#2b8c9f"),
-        ]
-        st.markdown("<div class='metric-grid'>" + "".join(metric_card(*item) for item in metrics) + "</div>", unsafe_allow_html=True)
+    if page == "Overview":
+        framework_col, analysis_col = st.columns([0.31, 0.69], gap="medium")
+        with framework_col:
+            render_framework_panel()
+        with analysis_col:
+            render_page(page, filtered_df)
+            render_validation_panel(filtered_df, df)
+    else:
         render_page(page, filtered_df)
-
-    with right:
-        st.markdown(section_header("VALIDATION & ANALYSIS"), unsafe_allow_html=True)
-        st.markdown(
-            """
-            <div class="info-card">
-                <h4>Objective</h4>
-                Use CATEM as a decision-support layer for diagnosing telepresence quality and prioritizing improvements.
-                <hr>
-                <h4>Validation Methods</h4>
-                <ul>
-                    <li>Literature-Based Weighting</li>
-                    <li>Correlation Analysis</li>
-                    <li>Multiple Linear Regression</li>
-                    <li>Random Forest Regression</li>
-                    <li>Feature Importance</li>
-                    <li>Prediction Accuracy (R2, MAE, RMSE)</li>
-                    <li>Root-Cause Recommendations</li>
-                </ul>
-            </div>
-            <div class="info-card"><h4>Comparison (Example Result)</h4>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.plotly_chart(comparison_chart(), use_container_width=True, config={"displayModeBar": False})
-        st.markdown(
-            """
-            </div>
-            <div class="info-card"><h4>Correlation Matrix</h4>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.plotly_chart(correlation_chart(filtered_df), use_container_width=True, config={"displayModeBar": False})
-        relation_rows = selected_research_correlations(filtered_df)
-        relations = "".join(
-            f"<li>{row.relationship}: <b>{row.correlation:.2f}</b></li>"
-            for row in relation_rows.itertuples(index=False)
-        )
-        st.markdown(
-            f"""
-            <ul>{relations}</ul>
-            </div>
-            <div class="info-card"><h4>Top Predictors of Telepresence Quality</h4>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.plotly_chart(feature_importance_chart(filtered_df), use_container_width=True, config={"displayModeBar": False})
-        st.markdown(
-            f"""
-            </div>
-            {explainability_card(filtered_df, df)}
-            """,
-            unsafe_allow_html=True,
-        )
+        if page in {"Decision Support", "Correlation Analysis", "Feature Importance"}:
+            render_validation_panel(filtered_df, df)
 
 if __name__ == "__main__":
     main()
